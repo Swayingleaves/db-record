@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: db-record-backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_record?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
