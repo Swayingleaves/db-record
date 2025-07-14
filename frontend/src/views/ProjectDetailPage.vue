@@ -29,6 +29,41 @@
       </div>
     </div>
 
+    <!-- 数据源管理 -->
+    <div class="datasource-section">
+      <div class="datasource-header">
+        <h3>数据源管理</h3>
+        <button class="datasource-add-btn" @click="openAddDataSource">绑定数据源</button>
+      </div>
+      <table class="datasource-table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>类型</th>
+            <th>地址</th>
+            <th>用户名</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="ds in projectDataSources" :key="ds.id">
+            <td>{{ ds.name }}</td>
+            <td>{{ ds.type }}</td>
+            <td>{{ ds.host }}:{{ ds.port }}</td>
+            <td>{{ ds.username }}</td>
+            <td>
+              <button class="datasource-op" @click="viewDataSource(ds)">详情</button>
+              <button class="datasource-op" @click="testDataSourceConn(ds)">测试</button>
+              <button class="datasource-op" @click="confirmUnbindDataSource(ds)">解绑</button>
+            </td>
+          </tr>
+          <tr v-if="!projectDataSources.length">
+            <td colspan="5" style="text-align:center;color:#aaa;">暂无绑定数据源</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <!-- 版本管理 -->
     <div class="version-section">
       <div class="version-header">
@@ -141,6 +176,70 @@
         </div>
       </div>
     </div>
+
+    <!-- 绑定数据源弹窗 -->
+    <div v-if="showDataSourceForm" class="project-dialog-mask">
+      <div class="project-dialog">
+        <h4>{{ dataSourceFormMode === 'bind' ? '绑定数据源' : '数据源详情' }}</h4>
+        <div v-if="dataSourceFormMode === 'bind'">
+          <div class="form-row">
+            <label>选择数据源</label>
+            <select v-model="selectedDataSourceId">
+              <option value="">请选择数据源</option>
+              <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
+            </select>
+          </div>
+          <div style="text-align:right;margin-top:18px;">
+            <button class="project-cancel-btn" @click="closeDataSourceForm">取消</button>
+            <button class="project-save-btn" @click="bindDataSource" :disabled="!selectedDataSourceId">绑定</button>
+          </div>
+        </div>
+        <div v-else>
+          <div class="form-row">
+            <label>名称</label>
+            <span>{{ currentDataSource?.name }}</span>
+          </div>
+          <div class="form-row">
+            <label>类型</label>
+            <span>{{ currentDataSource?.type }}</span>
+          </div>
+          <div class="form-row">
+            <label>地址</label>
+            <span>{{ currentDataSource?.host }}:{{ currentDataSource?.port }}</span>
+          </div>
+          <div class="form-row">
+            <label>用户名</label>
+            <span>{{ currentDataSource?.username }}</span>
+          </div>
+          <div style="text-align:right;margin-top:18px;">
+            <button class="project-cancel-btn" @click="closeDataSourceForm">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 解绑数据源确认弹窗 -->
+    <div v-if="showUnbindDataSource" class="project-dialog-mask">
+      <div class="project-dialog">
+        <h4>确认解绑？</h4>
+        <p>确定要解绑数据源 <b>{{ unbindTarget?.name }}</b> 吗？</p>
+        <div style="text-align:right;margin-top:18px;">
+          <button class="project-cancel-btn" @click="showUnbindDataSource=false">取消</button>
+          <button class="project-del-btn" @click="unbindDataSource">解绑</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 测试数据源连接弹窗 -->
+    <div v-if="showDataSourceTest" class="project-dialog-mask">
+      <div class="project-dialog">
+        <h4>连接测试</h4>
+        <p>{{ dataSourceTestMsg }}</p>
+        <div style="text-align:right;margin-top:18px;">
+          <button class="project-cancel-btn" @click="showDataSourceTest=false">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -155,6 +254,18 @@ const router = useRouter();
 const project = ref<any>(null);
 const showEditForm = ref(false);
 const editForm = ref<any>({});
+
+// 数据源管理相关
+const projectDataSources = ref<any[]>([]);
+const showDataSourceForm = ref(false);
+const dataSourceFormMode = ref<'bind'|'detail'>('bind');
+const selectedDataSourceId = ref<number|null>(null);
+const currentDataSource = ref<any>(null);
+const showUnbindDataSource = ref(false);
+const unbindTarget = ref<any>(null);
+const showDataSourceTest = ref(false);
+const dataSourceTestMsg = ref('');
+const availableDataSources = ref<any[]>([]);
 
 // 版本管理相关
 const versions = ref<any[]>([]);
@@ -172,6 +283,27 @@ const mockProjects = [
   { id: 1, name: '用户中心', desc: '用户与权限管理', createdAt: '2024-07-01' },
   { id: 2, name: '订单系统', desc: '订单与支付', createdAt: '2024-07-02' },
 ];
+
+// mock数据源数据
+const mockDataSources = [
+  { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
+  { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
+  { id: 3, name: '人大金仓测试', type: '人大金仓', host: '192.168.1.20', port: '54321', username: 'kingbase', password: '******' },
+];
+
+// mock项目绑定的数据源
+function mockProjectDataSources(projectId: number) {
+  if (projectId === 1) {
+    return [
+      { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
+    ];
+  } else if (projectId === 2) {
+    return [
+      { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
+    ];
+  }
+  return [];
+}
 
 // mock版本数据
 function mockVersions(projectId: number) {
@@ -193,7 +325,12 @@ onMounted(() => {
   project.value = mockProjects.find(p => p.id === projectId);
   if (project.value) {
     versions.value = mockVersions(project.value.id);
+    projectDataSources.value = mockProjectDataSources(project.value.id);
   }
+  // 初始化可用数据源（排除已绑定的）
+  availableDataSources.value = mockDataSources.filter(ds => 
+    !projectDataSources.value.some(pds => pds.id === ds.id)
+  );
 });
 
 // 项目编辑相关
@@ -267,6 +404,68 @@ function exportSql(ver: any) {
 
 function exportCompareSql() {
   alert('导出对比SQL（mock）');
+}
+
+// 数据源管理相关函数
+function openAddDataSource() {
+  dataSourceFormMode.value = 'bind';
+  selectedDataSourceId.value = null;
+  showDataSourceForm.value = true;
+  // 更新可用数据源列表
+  availableDataSources.value = mockDataSources.filter(ds => 
+    !projectDataSources.value.some(pds => pds.id === ds.id)
+  );
+}
+
+function viewDataSource(ds: any) {
+  dataSourceFormMode.value = 'detail';
+  currentDataSource.value = ds;
+  showDataSourceForm.value = true;
+}
+
+function closeDataSourceForm() {
+  showDataSourceForm.value = false;
+  selectedDataSourceId.value = null;
+  currentDataSource.value = null;
+}
+
+function bindDataSource() {
+  if (!selectedDataSourceId.value) return;
+  
+  const dataSource = mockDataSources.find(ds => ds.id === selectedDataSourceId.value);
+  if (dataSource) {
+    projectDataSources.value.push({ ...dataSource });
+    // 更新可用数据源列表
+    availableDataSources.value = mockDataSources.filter(ds => 
+      !projectDataSources.value.some(pds => pds.id === ds.id)
+    );
+  }
+  closeDataSourceForm();
+}
+
+function confirmUnbindDataSource(ds: any) {
+  unbindTarget.value = ds;
+  showUnbindDataSource.value = true;
+}
+
+function unbindDataSource() {
+  if (unbindTarget.value) {
+    projectDataSources.value = projectDataSources.value.filter(ds => ds.id !== unbindTarget.value.id);
+    // 更新可用数据源列表
+    availableDataSources.value = mockDataSources.filter(ds => 
+      !projectDataSources.value.some(pds => pds.id === ds.id)
+    );
+  }
+  showUnbindDataSource.value = false;
+  unbindTarget.value = null;
+}
+
+function testDataSourceConn(ds: any) {
+  showDataSourceTest.value = true;
+  dataSourceTestMsg.value = '正在测试连接...';
+  setTimeout(() => {
+    dataSourceTestMsg.value = Math.random() > 0.2 ? '连接成功！' : '连接失败，请检查配置';
+  }, 800);
 }
 </script>
 
@@ -366,6 +565,90 @@ function exportCompareSql() {
 
 .info-item span {
   color: #333;
+}
+
+/* 数据源管理 */
+.datasource-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
+}
+
+.datasource-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.datasource-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.datasource-add-btn {
+  background: #409eff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.datasource-add-btn:hover {
+  background: #337ecc;
+}
+
+.datasource-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #ebeef5;
+}
+
+.datasource-table th,
+.datasource-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.datasource-table th {
+  background: #f5f7fa;
+  font-weight: 600;
+  color: #606266;
+}
+
+.datasource-table tbody tr:hover {
+  background: #f5f7fa;
+}
+
+.datasource-op {
+  background: none;
+  border: 1px solid #dcdfe6;
+  color: #606266;
+  padding: 4px 8px;
+  margin-right: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.datasource-op:hover {
+  color: #409eff;
+  border-color: #409eff;
+}
+
+.datasource-op:last-child {
+  margin-right: 0;
 }
 
 /* 版本管理 */

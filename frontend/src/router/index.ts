@@ -6,9 +6,7 @@ import Dashboard from '../components/Dashboard.vue';
 import DataSourcePage from '../views/DataSourcePage.vue';
 import ProjectPage from '../views/ProjectPage.vue';
 import ProjectDetailPage from '../views/ProjectDetailPage.vue';
-
-// 占位页面
-const SqlPage = { template: '<div>SQL控制台内容区（待实现）</div>' };
+import SqlConsolePage from '../views/SqlConsolePage.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -22,7 +20,7 @@ const routes = [
       { path: '', redirect: '/dashboard/project' },
       { path: 'project', name: 'Project', component: ProjectPage },
       { path: 'project/:id', name: 'ProjectDetail', component: ProjectDetailPage },
-      { path: 'sql', name: 'Sql', component: SqlPage },
+      { path: 'sql', name: 'Sql', component: SqlConsolePage },
       { path: 'datasource', name: 'DataSource', component: DataSourcePage },
     ]
   }
