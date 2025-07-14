@@ -1,42 +1,105 @@
 <template>
-  <div class="dashboard-root">
-    <aside class="sidebar">
-      <div class="logo">DB-Record</div>
-      <nav>
-        <ul>
-          <li :class="{active: $route.path.startsWith('/dashboard/project')}" @click="goMenu('/dashboard/project')">项目管理</li>
-          <li :class="{active: $route.path.startsWith('/dashboard/sql')}" @click="goMenu('/dashboard/sql')">SQL控制台</li>
-          <li :class="{active: $route.path.startsWith('/dashboard/datasource')}" @click="goMenu('/dashboard/datasource')">数据源管理</li>
-        </ul>
-      </nav>
-    </aside>
-    <div class="main">
-      <header class="header">
-        <div class="user-info" @click="toggleDropdown">
-          <img class="avatar" src="https://unpkg.com/@tabler/icons@2.30.0/icons/user.svg" alt="avatar" />
-          <span class="username">{{ username }}</span>
-          <svg class="arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="#888" stroke-width="2" fill="none"/></svg>
+  <div class="ds-page">
+    <div class="ds-header">
+      <h3>数据源管理</h3>
+      <button class="ds-add-btn" @click="openAdd">新建数据源</button>
+    </div>
+    <table class="ds-table">
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>类型</th>
+          <th>地址</th>
+          <th>用户名</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="ds in dataSources" :key="ds.id">
+          <td>{{ ds.name }}</td>
+          <td>{{ ds.type }}</td>
+          <td>{{ ds.host }}:{{ ds.port }}</td>
+          <td>{{ ds.username }}</td>
+          <td>
+            <button class="ds-op" @click="viewDetail(ds)">详情</button>
+            <button class="ds-op" @click="editDs(ds)">编辑</button>
+            <button class="ds-op" @click="confirmDelete(ds)">删除</button>
+            <button class="ds-op" @click="testConn(ds)">测试</button>
+          </td>
+        </tr>
+        <tr v-if="!dataSources.length">
+          <td colspan="5" style="text-align:center;color:#aaa;">暂无数据源</td>
+        </tr>
+      </tbody>
+    </table>
+    <!-- 新建/编辑弹窗 -->
+    <div v-if="showForm" class="ds-dialog-mask">
+      <div class="ds-dialog">
+        <h4>{{ formMode==='add' ? '新建' : (formMode==='edit' ? '编辑' : '数据源详情') }}</h4>
+        <form @submit.prevent="submitForm">
+          <div class="form-row">
+            <label>类型</label>
+            <select v-model="form.type" :disabled="formMode==='detail'">
+              <option value="MySQL">MySQL</option>
+              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="人大金仓">人大金仓</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>名称</label>
+            <input v-model="form.name" :readonly="formMode==='detail'" required />
+          </div>
+          <div class="form-row">
+            <label>地址</label>
+            <input v-model="form.host" :readonly="formMode==='detail'" required />
+          </div>
+          <div class="form-row">
+            <label>端口</label>
+            <input v-model="form.port" :readonly="formMode==='detail'" required />
+          </div>
+          <div class="form-row">
+            <label>用户名</label>
+            <input v-model="form.username" :readonly="formMode==='detail'" required />
+          </div>
+          <div class="form-row">
+            <label>密码</label>
+            <input v-model="form.password" :readonly="formMode==='detail'" :type="formMode==='detail' ? 'text' : 'password'" required />
+          </div>
+          <div class="form-row" v-if="formMode!=='detail'">
+            <button class="ds-save-btn" type="submit">保存</button>
+            <button class="ds-cancel-btn" type="button" @click="closeForm">取消</button>
+          </div>
+          <div class="form-row" v-else>
+            <button class="ds-cancel-btn" type="button" @click="closeForm">关闭</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDelete" class="ds-dialog-mask">
+      <div class="ds-dialog">
+        <h4>确认删除？</h4>
+        <p>确定要删除数据源 <b>{{ delTarget?.name }}</b> 吗？</p>
+        <div style="text-align:right;margin-top:18px;">
+          <button class="ds-cancel-btn" @click="showDelete=false">取消</button>
+          <button class="ds-del-btn" @click="deleteDs">删除</button>
         </div>
-        <div v-if="dropdown" class="dropdown">
-          <div class="dropdown-item" @click="logout">退出登录</div>
+      </div>
+    </div>
+    <!-- 测试连接弹窗 -->
+    <div v-if="showTest" class="ds-dialog-mask">
+      <div class="ds-dialog">
+        <h4>连接测试</h4>
+        <p>{{ testMsg }}</p>
+        <div style="text-align:right;margin-top:18px;">
+          <button class="ds-cancel-btn" @click="showTest=false">关闭</button>
         </div>
-      </header>
-      <section class="content">
-        <div class="content-inner">
-          <router-view />
-        </div>
-      </section>
+      </div>
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { useRoute } from 'vue-router';
-const route = useRoute();
-
-// 数据源管理相关ref和方法
+import { ref } from 'vue';
 const dataSources = ref([
   { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
   { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
@@ -48,7 +111,6 @@ const showDelete = ref(false);
 const delTarget = ref<any>(null);
 const showTest = ref(false);
 const testMsg = ref('');
-
 function openAdd() {
   formMode.value = 'add';
   form.value = { type: 'MySQL', name: '', host: '', port: '', username: '', password: '' };
@@ -91,158 +153,17 @@ function testConn(ds:any) {
     testMsg.value = Math.random() > 0.2 ? '连接成功！' : '连接失败，请检查配置';
   }, 800);
 }
-
-// 其余dashboard相关ref和方法
-const router = useRouter();
-const activeMenu = ref('project');
-const dropdown = ref(false);
-const username = ref('');
-
-onMounted(() => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    router.push('/login');
-    return;
-  }
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    username.value = payload.sub;
-  } catch {
-    username.value = '';
-  }
-});
-
-const toggleDropdown = () => {
-  dropdown.value = !dropdown.value;
-};
-
-const logout = () => {
-  localStorage.removeItem('token');
-  router.push('/login');
-};
-
-function goMenu(path:string) {
-  if (route.path !== path) router.push(path);
-}
 </script>
-
 <style scoped>
-.dashboard-root {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  background: #f5f7fa;
-}
-.sidebar {
-  width: 200px;
-  background: #222e3c;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  padding-top: 18px;
-}
-.logo {
-  font-size: 1.3rem;
-  font-weight: bold;
-  text-align: center;
-  margin-bottom: 32px;
-  letter-spacing: 2px;
-}
-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-nav li {
-  padding: 14px 32px;
-  cursor: pointer;
-  color: #cfd8dc;
-  font-size: 1.08rem;
-  transition: background 0.2s, color 0.2s;
-}
-nav li.active, nav li:hover {
-  background: #409eff;
-  color: #fff;
-}
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.header {
-  height: 56px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 32px;
-  position: relative;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
-}
-.user-info {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  position: relative;
-}
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #eee;
-  margin-right: 10px;
-}
-.username {
-  font-weight: 500;
-  color: #333;
-  margin-right: 6px;
-}
-.arrow {
-  transition: transform 0.2s;
-}
-.dropdown {
-  position: absolute;
-  right: 32px;
-  top: 56px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.10);
-  min-width: 120px;
-  z-index: 10;
-}
-.dropdown-item {
-  padding: 12px 20px;
-  cursor: pointer;
-  color: #333;
-  font-size: 1rem;
-  transition: background 0.2s;
-}
-.dropdown-item:hover {
-  background: #f5f7fa;
-}
-.content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0; /* 允许子项flex拉伸 */
-  padding: 32px 24px 24px 24px;
-  background: #f5f7fa;
-  overflow: auto;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-}
-.content-inner {
-  max-width: 900px;
+.ds-page {
   width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  flex: 1;
-  min-height: 0; /* 允许子项flex拉伸 */
+  min-height: 0;  /* 允许flex容器收缩，关键 */
+  flex: 1;        /* 自动填满父容器，关键 */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
 }
+/* 其余样式同Dashboard数据源管理区 */
 .ds-header {
   display: flex;
   align-items: center;
@@ -379,28 +300,5 @@ nav li.active, nav li:hover {
 }
 .ds-del-btn:hover {
   background: #c0392b;
-}
-@media (max-width: 700px) {
-  .sidebar {
-    width: 56px;
-    padding-top: 8px;
-  }
-  .logo {
-    font-size: 1rem;
-    margin-bottom: 16px;
-  }
-  nav li {
-    padding: 12px 8px;
-    font-size: 0.98rem;
-  }
-  .main {
-    padding-left: 0;
-  }
-  .header {
-    padding: 0 8px;
-  }
-  .content {
-    padding: 12px;
-  }
 }
 </style> 
