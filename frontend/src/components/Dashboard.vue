@@ -1,31 +1,33 @@
 <template>
-  <div class="dashboard-root">
-    <aside class="sidebar">
-      <div class="logo">DB-Record</div>
-      <nav>
-        <ul>
-          <li :class="{active: $route.path.startsWith('/dashboard/project')}" @click="goMenu('/dashboard/project')">项目管理</li>
-          <li :class="{active: $route.path.startsWith('/dashboard/sql')}" @click="goMenu('/dashboard/sql')">SQL控制台</li>
-          <li :class="{active: $route.path.startsWith('/dashboard/datasource')}" @click="goMenu('/dashboard/datasource')">数据源管理</li>
-        </ul>
-      </nav>
-    </aside>
-    <div class="main">
-      <header class="header">
-        <div class="user-info" @click="toggleDropdown">
-          <img class="avatar" src="https://unpkg.com/@tabler/icons@2.30.0/icons/user.svg" alt="avatar" />
-          <span class="username">{{ username }}</span>
-          <svg class="arrow" width="16" height="16" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" stroke="#888" stroke-width="2" fill="none"/></svg>
+  <div class="dashboard">
+    <div class="dashboard-header">
+      <h1>DB-RECORD</h1>
+      <div class="user-info">
+        <span class="username">{{ username }}</span>
+        <div class="dropdown" @click="dropdown = !dropdown">
+          <span>▼</span>
+          <div v-if="dropdown" class="dropdown-menu">
+            <a @click="logout">退出登录</a>
+          </div>
         </div>
-        <div v-if="dropdown" class="dropdown">
-          <div class="dropdown-item" @click="logout">退出登录</div>
-        </div>
-      </header>
-      <section class="content">
-        <div class="content-inner">
-          <router-view />
-        </div>
-      </section>
+      </div>
+    </div>
+    
+    <div class="dashboard-body">
+      <div class="sidebar">
+        <nav class="nav-menu">
+          <router-link to="/dashboard/project" class="nav-item" active-class="active">
+            项目管理
+          </router-link>
+          <router-link to="/dashboard/datasource" class="nav-item" active-class="active">
+            数据源管理
+          </router-link>
+        </nav>
+      </div>
+      
+      <div class="main-content">
+        <router-view />
+      </div>
     </div>
   </div>
 </template>
@@ -33,374 +35,128 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRoute } from 'vue-router';
-const route = useRoute();
 
-// 数据源管理相关ref和方法
-const dataSources = ref([
-  { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
-  { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
-]);
-const showForm = ref(false);
-const formMode = ref<'add'|'edit'|'detail'>('add');
-const form = ref<any>({});
-const showDelete = ref(false);
-const delTarget = ref<any>(null);
-const showTest = ref(false);
-const testMsg = ref('');
-
-function openAdd() {
-  formMode.value = 'add';
-  form.value = { type: 'MySQL', name: '', host: '', port: '', username: '', password: '' };
-  showForm.value = true;
-}
-function editDs(ds:any) {
-  formMode.value = 'edit';
-  form.value = { ...ds };
-  showForm.value = true;
-}
-function viewDetail(ds:any) {
-  formMode.value = 'detail';
-  form.value = { ...ds };
-  showForm.value = true;
-}
-function closeForm() {
-  showForm.value = false;
-}
-function submitForm() {
-  if (formMode.value === 'add') {
-    dataSources.value.push({ ...form.value, id: Date.now() });
-  } else if (formMode.value === 'edit') {
-    const idx = dataSources.value.findIndex((d:any) => d.id === form.value.id);
-    if (idx > -1) dataSources.value[idx] = { ...form.value };
-  }
-  showForm.value = false;
-}
-function confirmDelete(ds:any) {
-  delTarget.value = ds;
-  showDelete.value = true;
-}
-function deleteDs() {
-  dataSources.value = dataSources.value.filter((d:any) => d.id !== delTarget.value.id);
-  showDelete.value = false;
-}
-function testConn(ds:any) {
-  showTest.value = true;
-  testMsg.value = '正在测试...';
-  setTimeout(() => {
-    testMsg.value = Math.random() > 0.2 ? '连接成功！' : '连接失败，请检查配置';
-  }, 800);
-}
-
-// 其余dashboard相关ref和方法
 const router = useRouter();
-const activeMenu = ref('project');
 const dropdown = ref(false);
 const username = ref('');
 
 onMounted(() => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    router.push('/login');
-    return;
-  }
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    username.value = payload.sub;
-  } catch {
-    username.value = '';
-  }
+  username.value = localStorage.getItem('username') || '用户';
 });
 
-const toggleDropdown = () => {
-  dropdown.value = !dropdown.value;
-};
-
-const logout = () => {
+function logout() {
   localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  localStorage.removeItem('role');
   router.push('/login');
-};
-
-function goMenu(path:string) {
-  if (route.path !== path) router.push(path);
 }
 </script>
 
 <style scoped>
-.dashboard-root {
-  display: flex;
+.dashboard {
   height: 100vh;
-  width: 100vw;
-  background: #f5f7fa;
-}
-.sidebar {
-  width: 200px;
-  background: #222e3c;
-  color: #fff;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  padding-top: 18px;
 }
-.logo {
-  font-size: 1.3rem;
-  font-weight: bold;
-  text-align: center;
-  margin-bottom: 32px;
-  letter-spacing: 2px;
-}
-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-nav li {
-  padding: 14px 32px;
-  cursor: pointer;
-  color: #cfd8dc;
-  font-size: 1.08rem;
-  transition: background 0.2s, color 0.2s;
-}
-nav li.active, nav li:hover {
+
+.dashboard-header {
   background: #409eff;
   color: #fff;
-}
-.main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.header {
-  height: 56px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 32px;
-  position: relative;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
-}
-.user-info {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  position: relative;
-}
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #eee;
-  margin-right: 10px;
-}
-.username {
-  font-weight: 500;
-  color: #333;
-  margin-right: 6px;
-}
-.arrow {
-  transition: transform 0.2s;
-}
-.dropdown {
-  position: absolute;
-  right: 32px;
-  top: 56px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.10);
-  min-width: 120px;
-  z-index: 10;
-}
-.dropdown-item {
-  padding: 12px 20px;
-  cursor: pointer;
-  color: #333;
-  font-size: 1rem;
-  transition: background 0.2s;
-}
-.dropdown-item:hover {
-  background: #f5f7fa;
-}
-.content {
-  flex: 1;
-  min-width: 0;
-  min-height: 0; /* 允许子项flex拉伸 */
-  padding: 32px 24px 24px 24px;
-  background: #f5f7fa;
-  overflow: auto;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-}
-.content-inner {
-  max-width: 900px;
-  width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  flex: 1;
-  min-height: 0; /* 允许子项flex拉伸 */
-  display: flex;
-  flex-direction: column;
-}
-.ds-header {
+  padding: 0 20px;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.ds-add-btn {
-  background: #409eff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 18px;
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.username {
   font-size: 1rem;
+}
+
+.dropdown {
   cursor: pointer;
-  transition: background 0.2s;
+  position: relative;
 }
-.ds-add-btn:hover {
-  background: #337ecc;
-}
-.ds-table {
-  width: 100%;
-  border-collapse: collapse;
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
   background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
-}
-.ds-table th, .ds-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid #f0f0f0;
-  text-align: left;
-}
-.ds-table th {
-  background: #f5f7fa;
-  color: #666;
-  font-weight: 500;
-}
-.ds-op {
-  background: none;
-  border: none;
-  color: #409eff;
-  cursor: pointer;
-  margin-right: 8px;
-  font-size: 0.98rem;
-  padding: 0 4px;
-  transition: color 0.2s;
-}
-.ds-op:hover {
-  color: #337ecc;
-}
-.ds-dialog-mask {
-  position: fixed;
-  left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.18);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 100px;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-.ds-dialog {
-  background: #fff;
-  border-radius: 10px;
-  min-width: 320px;
-  max-width: 96vw;
-  padding: 28px 24px 18px 24px;
-  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+
+.dropdown-menu a {
+  display: block;
+  padding: 8px 12px;
+  color: #333;
+  text-decoration: none;
+  cursor: pointer;
 }
-.ds-dialog h4 {
-  margin: 0 0 18px 0;
-  font-size: 1.18rem;
-  font-weight: 600;
+
+.dropdown-menu a:hover {
+  background: #f5f5f5;
 }
-.form-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 14px;
-}
-.form-row label {
-  width: 70px;
-  color: #555;
-  font-size: 1rem;
-}
-.form-row input, .form-row select {
+
+.dashboard-body {
   flex: 1;
-  padding: 7px 10px;
-  border: 1px solid #e0e3e8;
-  border-radius: 5px;
-  font-size: 1rem;
-  outline: none;
-  background: #f8fafc;
-  transition: border 0.2s;
+  display: flex;
+  overflow: hidden;
 }
-.form-row input:focus, .form-row select:focus {
-  border: 1.5px solid #409eff;
-  background: #fff;
+
+.sidebar {
+  width: 200px;
+  background: #f5f7fa;
+  border-right: 1px solid #e4e7ed;
+  padding: 20px 0;
 }
-.ds-save-btn {
-  background: #409eff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-right: 12px;
-  transition: background 0.2s;
+
+.nav-menu {
+  display: flex;
+  flex-direction: column;
 }
-.ds-save-btn:hover {
-  background: #337ecc;
+
+.nav-item {
+  padding: 12px 20px;
+  color: #606266;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: all 0.3s;
 }
-.ds-cancel-btn {
-  background: #eee;
-  color: #555;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-right: 8px;
-  transition: background 0.2s;
+
+.nav-item:hover {
+  background: #ecf5ff;
+  color: #409eff;
 }
-.ds-cancel-btn:hover {
-  background: #e0e3e8;
+
+.nav-item.active {
+  background: #ecf5ff;
+  color: #409eff;
+  border-left-color: #409eff;
 }
-.ds-del-btn {
-  background: #e74c3c;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.ds-del-btn:hover {
-  background: #c0392b;
-}
-@media (max-width: 700px) {
-  .sidebar {
-    width: 56px;
-    padding-top: 8px;
-  }
-  .logo {
-    font-size: 1rem;
-    margin-bottom: 16px;
-  }
-  nav li {
-    padding: 12px 8px;
-    font-size: 0.98rem;
-  }
-  .main {
-    padding-left: 0;
-  }
-  .header {
-    padding: 0 8px;
-  }
-  .content {
-    padding: 12px;
-  }
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: #f8f9fa;
 }
 </style> 

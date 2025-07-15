@@ -9,7 +9,9 @@
         <div class="form-item">
           <input type="password" v-model="password" required placeholder="密码" autocomplete="new-password" />
         </div>
-        <button class="register-btn" type="submit">注册</button>
+        <button class="register-btn" type="submit" :disabled="loading">
+          {{ loading ? '注册中...' : '注册' }}
+        </button>
         <p v-if="error" class="error">{{ error }}</p>
         <p v-if="success" class="success">注册成功，正在跳转...</p>
       </form>
@@ -23,26 +25,35 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import request from '../utils/request';
 
 const username = ref('');
 const password = ref('');
 const error = ref('');
 const success = ref(false);
+const loading = ref(false);
 const router = useRouter();
 
 const handleRegister = async () => {
+  if (loading.value) return;
+  
   error.value = '';
+  success.value = false;
+  loading.value = true;
+  
   try {
-    const res = await axios.post('/register', { username: username.value, password: password.value });
-    if (res.data.success) {
-      success.value = true;
-      setTimeout(() => router.push('/login'), 1000);
-    } else {
-      error.value = res.data.message || '注册失败';
-    }
-  } catch (e) {
-    error.value = '请求失败';
+    await request.post('/register', { 
+      username: username.value, 
+      password: password.value 
+    });
+    
+    // 请求成功，response.data 是 ApiResult 格式
+    success.value = true;
+    setTimeout(() => router.push('/login'), 1500);
+  } catch (err: any) {
+    error.value = err.message || '注册失败';
+  } finally {
+    loading.value = false;
   }
 };
 </script>
@@ -104,8 +115,12 @@ const handleRegister = async () => {
   margin-top: 6px;
   transition: background 0.2s;
 }
-.register-btn:hover {
+.register-btn:hover:not(:disabled) {
   background: #337ecc;
+}
+.register-btn:disabled {
+  background: #a0cfff;
+  cursor: not-allowed;
 }
 .error {
   color: #e74c3c;

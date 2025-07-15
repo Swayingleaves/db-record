@@ -4,7 +4,11 @@
       <h3>数据源管理</h3>
       <button class="ds-add-btn" @click="openAdd">新建数据源</button>
     </div>
-    <table class="ds-table">
+    
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading">加载中...</div>
+    
+    <table v-else class="ds-table">
       <thead>
         <tr>
           <th>名称</th>
@@ -18,7 +22,7 @@
         <tr v-for="ds in dataSources" :key="ds.id">
           <td>{{ ds.name }}</td>
           <td>{{ ds.type }}</td>
-          <td>{{ ds.host }}:{{ ds.port }}</td>
+          <td>{{ ds.host }}:{{ ds.port }}/{{ ds.databaseName }}</td>
           <td>{{ ds.username }}</td>
           <td>
             <button class="ds-op" @click="viewDetail(ds)">详情</button>
@@ -32,6 +36,7 @@
         </tr>
       </tbody>
     </table>
+    
     <!-- 新建/编辑弹窗 -->
     <div v-if="showForm" class="ds-dialog-mask">
       <div class="ds-dialog">
@@ -40,9 +45,9 @@
           <div class="form-row">
             <label>类型</label>
             <select v-model="form.type" :disabled="formMode==='detail'">
-              <option value="MySQL">MySQL</option>
-              <option value="PostgreSQL">PostgreSQL</option>
-              <option value="人大金仓">人大金仓</option>
+              <option value="mysql">MySQL</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="kingbase">人大金仓</option>
             </select>
           </div>
           <div class="form-row">
@@ -55,7 +60,11 @@
           </div>
           <div class="form-row">
             <label>端口</label>
-            <input v-model="form.port" :readonly="formMode==='detail'" required />
+            <input v-model="form.port" :readonly="formMode==='detail'" type="number" required />
+          </div>
+          <div class="form-row">
+            <label>数据库名</label>
+            <input v-model="form.databaseName" :readonly="formMode==='detail'" required />
           </div>
           <div class="form-row">
             <label>用户名</label>
@@ -65,8 +74,14 @@
             <label>密码</label>
             <input v-model="form.password" :readonly="formMode==='detail'" :type="formMode==='detail' ? 'text' : 'password'" required />
           </div>
+          <div class="form-row">
+            <label>描述</label>
+            <input v-model="form.description" :readonly="formMode==='detail'" />
+          </div>
           <div class="form-row" v-if="formMode!=='detail'">
-            <button class="ds-save-btn" type="submit">保存</button>
+            <button class="ds-save-btn" type="submit" :disabled="submitting">
+              {{ submitting ? '保存中...' : '保存' }}
+            </button>
             <button class="ds-cancel-btn" type="button" @click="closeForm">取消</button>
           </div>
           <div class="form-row" v-else>
@@ -75,6 +90,7 @@
         </form>
       </div>
     </div>
+    
     <!-- 删除确认弹窗 -->
     <div v-if="showDelete" class="ds-dialog-mask">
       <div class="ds-dialog">
@@ -82,10 +98,13 @@
         <p>确定要删除数据源 <b>{{ delTarget?.name }}</b> 吗？</p>
         <div style="text-align:right;margin-top:18px;">
           <button class="ds-cancel-btn" @click="showDelete=false">取消</button>
-          <button class="ds-del-btn" @click="deleteDs">删除</button>
+          <button class="ds-del-btn" @click="deleteDs" :disabled="deleting">
+            {{ deleting ? '删除中...' : '删除' }}
+          </button>
         </div>
       </div>
     </div>
+    
     <!-- 测试连接弹窗 -->
     <div v-if="showTest" class="ds-dialog-mask">
       <div class="ds-dialog">
@@ -96,14 +115,20 @@
         </div>
       </div>
     </div>
+    
+    <!-- 错误提示 -->
+    <div v-if="error" class="error-toast">
+      {{ error }}
+      <button @click="error=''" class="close-btn">×</button>
+    </div>
   </div>
 </template>
+
 <script setup lang="ts">
-import { ref } from 'vue';
-const dataSources = ref([
-  { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
-  { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
-]);
+import { ref, onMounted } from 'vue';
+import request from '../utils/request';
+
+const dataSources = ref<any[]>([]);
 const showForm = ref(false);
 const formMode = ref<'add'|'edit'|'detail'>('add');
 const form = ref<any>({});
@@ -111,65 +136,173 @@ const showDelete = ref(false);
 const delTarget = ref<any>(null);
 const showTest = ref(false);
 const testMsg = ref('');
+const loading = ref(false);
+const submitting = ref(false);
+const deleting = ref(false);
+const error = ref('');
+
+onMounted(() => {
+  loadDataSources();
+});
+
+async function loadDataSources() {
+  try {
+    loading.value = true;
+    error.value = '';
+    const response = await request.get('/api/datasource/list');
+    dataSources.value = response.data.data || [];
+  } catch (err: any) {
+    error.value = err.message || '加载数据源失败';
+    console.error('加载数据源失败:', err);
+  } finally {
+    loading.value = false;
+  }
+}
+
 function openAdd() {
   formMode.value = 'add';
-  form.value = { type: 'MySQL', name: '', host: '', port: '', username: '', password: '' };
+  form.value = { 
+    type: 'mysql', 
+    name: '', 
+    host: '', 
+    port: 3306, 
+    databaseName: '', 
+    username: '', 
+    password: '', 
+    description: '' 
+  };
   showForm.value = true;
 }
-function editDs(ds:any) {
+
+function editDs(ds: any) {
   formMode.value = 'edit';
   form.value = { ...ds };
   showForm.value = true;
 }
-function viewDetail(ds:any) {
+
+function viewDetail(ds: any) {
   formMode.value = 'detail';
   form.value = { ...ds };
   showForm.value = true;
 }
+
 function closeForm() {
   showForm.value = false;
+  error.value = '';
 }
-function submitForm() {
-  if (formMode.value === 'add') {
-    dataSources.value.push({ ...form.value, id: Date.now() });
-  } else if (formMode.value === 'edit') {
-    const idx = dataSources.value.findIndex((d:any) => d.id === form.value.id);
-    if (idx > -1) dataSources.value[idx] = { ...form.value };
+
+async function submitForm() {
+  if (submitting.value) return;
+  
+  try {
+    submitting.value = true;
+    error.value = '';
+    
+    if (formMode.value === 'add') {
+      await request.post('/api/datasource/create', form.value);
+      await loadDataSources();
+      showForm.value = false;
+    } else if (formMode.value === 'edit') {
+      await request.put('/api/datasource/update', form.value);
+      await loadDataSources();
+      showForm.value = false;
+    }
+  } catch (err: any) {
+    error.value = err.message || '操作失败';
+    console.error('提交失败:', err);
+  } finally {
+    submitting.value = false;
   }
-  showForm.value = false;
 }
-function confirmDelete(ds:any) {
+
+function confirmDelete(ds: any) {
   delTarget.value = ds;
   showDelete.value = true;
 }
-function deleteDs() {
-  dataSources.value = dataSources.value.filter((d:any) => d.id !== delTarget.value.id);
-  showDelete.value = false;
+
+async function deleteDs() {
+  if (deleting.value) return;
+  
+  try {
+    deleting.value = true;
+    error.value = '';
+    await request.delete(`/api/datasource/delete/${delTarget.value.id}`);
+    await loadDataSources();
+    showDelete.value = false;
+  } catch (err: any) {
+    error.value = err.message || '删除失败';
+    console.error('删除失败:', err);
+  } finally {
+    deleting.value = false;
+  }
 }
-function testConn(ds:any) {
+
+async function testConn(ds: any) {
   showTest.value = true;
-  testMsg.value = '正在测试...';
-  setTimeout(() => {
-    testMsg.value = Math.random() > 0.2 ? '连接成功！' : '连接失败，请检查配置';
-  }, 800);
+  testMsg.value = '正在测试连接...';
+  
+  try {
+    await request.post('/api/datasource/test', ds);
+    testMsg.value = '连接成功！';
+  } catch (err: any) {
+    testMsg.value = err.message || '连接失败，请检查配置';
+  }
 }
 </script>
+
 <style scoped>
 .ds-page {
   width: 100%;
-  min-height: 0;  /* 允许flex容器收缩，关键 */
-  flex: 1;        /* 自动填满父容器，关键 */
+  min-height: 0;
+  flex: 1;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
-/* 其余样式同Dashboard数据源管理区 */
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+.error-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #f56565;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .ds-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
 }
+
 .ds-add-btn {
   background: #409eff;
   color: #fff;
@@ -180,9 +313,11 @@ function testConn(ds:any) {
   cursor: pointer;
   transition: background 0.2s;
 }
+
 .ds-add-btn:hover {
   background: #337ecc;
 }
+
 .ds-table {
   width: 100%;
   border-collapse: collapse;
@@ -191,16 +326,19 @@ function testConn(ds:any) {
   overflow: hidden;
   box-shadow: 0 2px 8px 0 rgba(0,0,0,0.03);
 }
+
 .ds-table th, .ds-table td {
   padding: 12px 10px;
   border-bottom: 1px solid #f0f0f0;
   text-align: left;
 }
+
 .ds-table th {
   background: #f5f7fa;
   color: #666;
   font-weight: 500;
 }
+
 .ds-op {
   background: none;
   border: none;
@@ -211,94 +349,112 @@ function testConn(ds:any) {
   padding: 0 4px;
   transition: color 0.2s;
 }
+
 .ds-op:hover {
   color: #337ecc;
 }
+
 .ds-dialog-mask {
   position: fixed;
-  left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.18);
-  z-index: 1000;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
 }
+
 .ds-dialog {
   background: #fff;
-  border-radius: 10px;
-  min-width: 320px;
-  max-width: 96vw;
-  padding: 28px 24px 18px 24px;
-  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
+
 .ds-dialog h4 {
-  margin: 0 0 18px 0;
-  font-size: 1.18rem;
-  font-weight: 600;
+  margin-bottom: 20px;
+  color: #333;
 }
+
 .form-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
+
 .form-row label {
-  width: 70px;
-  color: #555;
-  font-size: 1rem;
+  display: block;
+  margin-bottom: 4px;
+  color: #666;
+  font-weight: 500;
 }
+
 .form-row input, .form-row select {
-  flex: 1;
-  padding: 7px 10px;
-  border: 1px solid #e0e3e8;
-  border-radius: 5px;
-  font-size: 1rem;
-  outline: none;
-  background: #f8fafc;
-  transition: border 0.2s;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
+
 .form-row input:focus, .form-row select:focus {
-  border: 1.5px solid #409eff;
-  background: #fff;
+  outline: none;
+  border-color: #409eff;
 }
+
+.form-row input[readonly] {
+  background: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.ds-save-btn, .ds-cancel-btn, .ds-del-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
 .ds-save-btn {
   background: #409eff;
   color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-right: 12px;
-  transition: background 0.2s;
 }
-.ds-save-btn:hover {
+
+.ds-save-btn:hover:not(:disabled) {
   background: #337ecc;
 }
+
+.ds-save-btn:disabled {
+  background: #a0cfff;
+  cursor: not-allowed;
+}
+
 .ds-cancel-btn {
-  background: #eee;
-  color: #555;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  margin-right: 8px;
-  transition: background 0.2s;
+  background: #f0f0f0;
+  color: #666;
 }
+
 .ds-cancel-btn:hover {
-  background: #e0e3e8;
+  background: #e0e0e0;
 }
+
 .ds-del-btn {
-  background: #e74c3c;
+  background: #f56565;
   color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 18px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.2s;
 }
-.ds-del-btn:hover {
-  background: #c0392b;
+
+.ds-del-btn:hover:not(:disabled) {
+  background: #e53e3e;
+}
+
+.ds-del-btn:disabled {
+  background: #feb2b2;
+  cursor: not-allowed;
 }
 </style> 

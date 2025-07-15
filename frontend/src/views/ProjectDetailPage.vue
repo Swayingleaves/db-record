@@ -7,96 +7,114 @@
       <span class="breadcrumb-current">{{ project?.name || '项目详情' }}</span>
     </div>
 
-    <!-- 项目基本信息 -->
-    <div class="project-info-card">
-      <div class="card-header">
-        <h3>项目信息</h3>
-        <button class="edit-btn" @click="editProject">编辑项目</button>
-      </div>
-      <div class="project-info">
-        <div class="info-item">
-          <label>项目名称：</label>
-          <span>{{ project?.name }}</span>
-        </div>
-        <div class="info-item">
-          <label>项目描述：</label>
-          <span>{{ project?.desc }}</span>
-        </div>
-        <div class="info-item">
-          <label>创建时间：</label>
-          <span>{{ project?.createdAt }}</span>
-        </div>
-      </div>
+    <!-- 加载状态 -->
+    <div v-if="loading" class="loading">
+      <p>加载中...</p>
     </div>
 
-    <!-- 数据源管理 -->
-    <div class="datasource-section">
-      <div class="datasource-header">
-        <h3>数据源管理</h3>
-        <button class="datasource-add-btn" @click="openAddDataSource">绑定数据源</button>
-      </div>
-      <table class="datasource-table">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>类型</th>
-            <th>地址</th>
-            <th>用户名</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="ds in projectDataSources" :key="ds.id">
-            <td>{{ ds.name }}</td>
-            <td>{{ ds.type }}</td>
-            <td>{{ ds.host }}:{{ ds.port }}</td>
-            <td>{{ ds.username }}</td>
-            <td>
-              <button class="datasource-op" @click="viewDataSource(ds)">详情</button>
-              <button class="datasource-op" @click="testDataSourceConn(ds)">测试</button>
-              <button class="datasource-op" @click="confirmUnbindDataSource(ds)">解绑</button>
-            </td>
-          </tr>
-          <tr v-if="!projectDataSources.length">
-            <td colspan="5" style="text-align:center;color:#aaa;">暂无绑定数据源</td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- 错误提示 -->
+    <div v-if="error" class="error-message">
+      <p>{{ error }}</p>
+      <button @click="loadProjectDetail">重试</button>
     </div>
 
-    <!-- 版本管理 -->
-    <div class="version-section">
-      <div class="version-header">
-        <h3>版本管理</h3>
-        <button class="version-add-btn" @click="openAddVersion">新建版本</button>
+    <!-- 项目内容 -->
+    <div v-if="!loading && !error">
+      <!-- 项目基本信息 -->
+      <div class="project-info-card">
+        <div class="card-header">
+          <h3>项目信息</h3>
+          <button class="edit-btn" @click="editProject">编辑项目</button>
+        </div>
+        <div class="project-info">
+          <div class="info-item">
+            <label>项目名称：</label>
+            <span>{{ project?.name }}</span>
+          </div>
+          <div class="info-item">
+            <label>项目描述：</label>
+            <span>{{ project?.description || '暂无描述' }}</span>
+          </div>
+          <div class="info-item">
+            <label>创建时间：</label>
+            <span>{{ formatDate(project?.createTime) }}</span>
+          </div>
+        </div>
       </div>
-      <table class="version-table">
-        <thead>
-          <tr>
-            <th>版本号</th>
-            <th>描述</th>
-            <th>创建时间</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="ver in versions" :key="ver.id">
-            <td>{{ ver.version }}</td>
-            <td>{{ ver.desc }}</td>
-            <td>{{ ver.createdAt }}</td>
-            <td>
-              <button class="version-op" @click="viewVersion(ver)">详情</button>
-              <button class="version-op" @click="editVersion(ver)">编辑</button>
-              <button class="version-op" @click="confirmDeleteVersion(ver)">删除</button>
-              <button class="version-op" @click="openCompare(ver)">对比</button>
-              <button class="version-op" @click="exportSql(ver)">导出SQL</button>
-            </td>
-          </tr>
-          <tr v-if="!versions.length">
-            <td colspan="4" style="text-align:center;color:#aaa;">暂无版本</td>
-          </tr>
-        </tbody>
-      </table>
+
+      <!-- 数据源管理 -->
+      <div class="datasource-section">
+        <div class="datasource-header">
+          <h3>数据源管理</h3>
+          <button class="datasource-add-btn" @click="openBindDataSource">绑定数据源</button>
+        </div>
+        <div class="datasource-content">
+          <div v-if="currentDatasource" class="datasource-info">
+            <div class="info-item">
+              <label>名称：</label>
+              <span>{{ currentDatasource.name }}</span>
+            </div>
+            <div class="info-item">
+              <label>类型：</label>
+              <span>{{ currentDatasource.type }}</span>
+            </div>
+            <div class="info-item">
+              <label>地址：</label>
+              <span>{{ currentDatasource.host }}:{{ currentDatasource.port }}</span>
+            </div>
+            <div class="info-item">
+              <label>数据库：</label>
+              <span>{{ currentDatasource.databaseName }}</span>
+            </div>
+            <div class="info-item">
+              <label>用户名：</label>
+              <span>{{ currentDatasource.username }}</span>
+            </div>
+            <div class="datasource-actions">
+              <button class="datasource-op" @click="testDataSourceConnection">测试连接</button>
+              <button class="datasource-op" @click="unbindDataSource">解绑</button>
+            </div>
+          </div>
+          <div v-else class="no-datasource">
+            <p>暂未绑定数据源</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 版本管理 -->
+      <div class="version-section">
+        <div class="version-header">
+          <h3>版本管理</h3>
+          <button class="version-add-btn" @click="openAddVersion">新建版本</button>
+        </div>
+        <table class="version-table">
+          <thead>
+            <tr>
+              <th>版本号</th>
+              <th>描述</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="ver in versions" :key="ver.id">
+              <td>{{ ver.versionName }}</td>
+              <td>{{ ver.description || '暂无描述' }}</td>
+              <td>{{ formatDate(ver.createTime) }}</td>
+              <td>
+                <button class="version-op" @click="viewVersion(ver)">详情</button>
+                <button class="version-op" @click="editVersion(ver)">编辑</button>
+                <button class="version-op" @click="confirmDeleteVersion(ver)">删除</button>
+                <button class="version-op" @click="openCompare(ver)">对比</button>
+                <button class="version-op" @click="exportSql(ver)">导出SQL</button>
+              </td>
+            </tr>
+            <tr v-if="!versions.length">
+              <td colspan="4" style="text-align:center;color:#aaa;">暂无版本</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- 编辑项目弹窗 -->
@@ -110,10 +128,12 @@
           </div>
           <div class="form-row">
             <label>描述</label>
-            <input v-model="editForm.desc" />
+            <input v-model="editForm.description" />
           </div>
           <div class="form-row">
-            <button class="project-save-btn" type="submit">保存</button>
+            <button class="project-save-btn" type="submit" :disabled="editFormLoading">
+              {{ editFormLoading ? '保存中...' : '保存' }}
+            </button>
             <button class="project-cancel-btn" type="button" @click="closeEditForm">取消</button>
           </div>
         </form>
@@ -127,14 +147,16 @@
         <form @submit.prevent="submitVersionForm">
           <div class="form-row">
             <label>版本号</label>
-            <input v-model="versionForm.version" :readonly="versionFormMode==='detail'" required />
+            <input v-model="versionForm.versionName" :readonly="versionFormMode==='detail'" required />
           </div>
           <div class="form-row">
             <label>描述</label>
-            <input v-model="versionForm.desc" :readonly="versionFormMode==='detail'" />
+            <input v-model="versionForm.description" :readonly="versionFormMode==='detail'" />
           </div>
           <div class="form-row" v-if="versionFormMode!=='detail'">
-            <button class="version-save-btn" type="submit">保存</button>
+            <button class="version-save-btn" type="submit" :disabled="versionFormLoading">
+              {{ versionFormLoading ? '保存中...' : '保存' }}
+            </button>
             <button class="version-cancel-btn" type="button" @click="closeVersionForm">取消</button>
           </div>
           <div class="form-row" v-else>
@@ -148,10 +170,12 @@
     <div v-if="showDelete" class="project-dialog-mask">
       <div class="project-dialog">
         <h4>确认删除？</h4>
-        <p>确定要删除版本 <b>{{ delTarget?.version }}</b> 吗？</p>
+        <p>确定要删除版本 <b>{{ delTarget?.versionName }}</b> 吗？</p>
         <div style="text-align:right;margin-top:18px;">
           <button class="project-cancel-btn" @click="showDelete=false">取消</button>
-          <button class="project-del-btn" @click="deleteVersion">删除</button>
+          <button class="project-del-btn" @click="deleteVersion" :disabled="deleteLoading">
+            {{ deleteLoading ? '删除中...' : '删除' }}
+          </button>
         </div>
       </div>
     </div>
@@ -163,175 +187,161 @@
         <div class="form-row">
           <label>选择对比版本</label>
           <select v-model="compareTargetId">
-            <option v-for="ver in versions" :key="ver.id" :value="ver.id">{{ ver.version }}</option>
+            <option value="">请选择版本</option>
+            <option v-for="ver in versions.filter(v => v.id !== compareBaseVersion?.id)" :key="ver.id" :value="ver.id">{{ ver.versionName }}</option>
           </select>
         </div>
-        <div class="compare-result">
-          <p>结构变化（mock）：</p>
+        <div class="compare-result" v-if="compareResult">
+          <p>对比结果：</p>
           <pre style="background:#f8f8f8;padding:10px;border-radius:6px;">{{ compareResult }}</pre>
         </div>
         <div style="text-align:right;margin-top:18px;">
           <button class="version-cancel-btn" @click="showCompare=false">关闭</button>
-          <button class="version-save-btn" @click="exportCompareSql">导出SQL</button>
+          <button class="version-save-btn" @click="performCompare" :disabled="!compareTargetId || compareLoading">
+            {{ compareLoading ? '对比中...' : '开始对比' }}
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 绑定数据源弹窗 -->
-    <div v-if="showDataSourceForm" class="project-dialog-mask">
+    <div v-if="showBindDataSource" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>{{ dataSourceFormMode === 'bind' ? '绑定数据源' : '数据源详情' }}</h4>
-        <div v-if="dataSourceFormMode === 'bind'">
-          <div class="form-row">
-            <label>选择数据源</label>
-            <select v-model="selectedDataSourceId">
-              <option value="">请选择数据源</option>
-              <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
-            </select>
-          </div>
-          <div style="text-align:right;margin-top:18px;">
-            <button class="project-cancel-btn" @click="closeDataSourceForm">取消</button>
-            <button class="project-save-btn" @click="bindDataSource" :disabled="!selectedDataSourceId">绑定</button>
-          </div>
+        <h4>绑定数据源</h4>
+        <div class="form-row">
+          <label>选择数据源</label>
+          <select v-model="selectedDataSourceId">
+            <option value="">请选择数据源</option>
+            <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
+          </select>
         </div>
-        <div v-else>
-          <div class="form-row">
-            <label>名称</label>
-            <span>{{ currentDataSource?.name }}</span>
-          </div>
-          <div class="form-row">
-            <label>类型</label>
-            <span>{{ currentDataSource?.type }}</span>
-          </div>
-          <div class="form-row">
-            <label>地址</label>
-            <span>{{ currentDataSource?.host }}:{{ currentDataSource?.port }}</span>
-          </div>
-          <div class="form-row">
-            <label>用户名</label>
-            <span>{{ currentDataSource?.username }}</span>
-          </div>
-          <div style="text-align:right;margin-top:18px;">
-            <button class="project-cancel-btn" @click="closeDataSourceForm">关闭</button>
-          </div>
+        <div style="text-align:right;margin-top:18px;">
+          <button class="project-cancel-btn" @click="closeBindDataSource">取消</button>
+          <button class="project-save-btn" @click="bindDataSource" :disabled="!selectedDataSourceId || bindLoading">
+            {{ bindLoading ? '绑定中...' : '绑定' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- 解绑数据源确认弹窗 -->
-    <div v-if="showUnbindDataSource" class="project-dialog-mask">
+    <!-- 测试连接结果弹窗 -->
+    <div v-if="showTestResult" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>确认解绑？</h4>
-        <p>确定要解绑数据源 <b>{{ unbindTarget?.name }}</b> 吗？</p>
+        <h4>连接测试结果</h4>
+        <p>{{ testResultMessage }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="showUnbindDataSource=false">取消</button>
-          <button class="project-del-btn" @click="unbindDataSource">解绑</button>
+          <button class="project-cancel-btn" @click="showTestResult=false">关闭</button>
         </div>
       </div>
     </div>
 
-    <!-- 测试数据源连接弹窗 -->
-    <div v-if="showDataSourceTest" class="project-dialog-mask">
-      <div class="project-dialog">
-        <h4>连接测试</h4>
-        <p>{{ dataSourceTestMsg }}</p>
-        <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="showDataSourceTest=false">关闭</button>
-        </div>
-      </div>
+    <!-- Toast消息 -->
+    <div v-if="toastMessage" class="toast" :class="toastType">
+      {{ toastMessage }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
+import request from '../utils/request';
+import type { Project, ProjectVersion, Datasource } from '../types/api';
 
 const route = useRoute();
-const router = useRouter();
 
-// 项目信息
-const project = ref<any>(null);
+// 基础数据
+const project = ref<Project | null>(null);
+const currentDatasource = ref<Datasource | null>(null);
+const versions = ref<ProjectVersion[]>([]);
+const availableDataSources = ref<Datasource[]>([]);
+
+// 加载状态
+const loading = ref(false);
+const error = ref('');
+const editFormLoading = ref(false);
+const versionFormLoading = ref(false);
+const deleteLoading = ref(false);
+const compareLoading = ref(false);
+const bindLoading = ref(false);
+
+// 项目编辑相关
 const showEditForm = ref(false);
-const editForm = ref<any>({});
-
-// 数据源管理相关
-const projectDataSources = ref<any[]>([]);
-const showDataSourceForm = ref(false);
-const dataSourceFormMode = ref<'bind'|'detail'>('bind');
-const selectedDataSourceId = ref<number|null>(null);
-const currentDataSource = ref<any>(null);
-const showUnbindDataSource = ref(false);
-const unbindTarget = ref<any>(null);
-const showDataSourceTest = ref(false);
-const dataSourceTestMsg = ref('');
-const availableDataSources = ref<any[]>([]);
+const editForm = ref<Partial<Project>>({});
 
 // 版本管理相关
-const versions = ref<any[]>([]);
 const showVersionForm = ref(false);
 const versionFormMode = ref<'add'|'edit'|'detail'>('add');
-const versionForm = ref<any>({});
+const versionForm = ref<Partial<ProjectVersion>>({});
 const showDelete = ref(false);
-const delTarget = ref<any>(null);
+const delTarget = ref<ProjectVersion | null>(null);
+
+// 版本对比相关
 const showCompare = ref(false);
-const compareTargetId = ref<number|null>(null);
+const compareBaseVersion = ref<ProjectVersion | null>(null);
+const compareTargetId = ref<number | null>(null);
 const compareResult = ref('');
 
-// mock项目数据
-const mockProjects = [
-  { id: 1, name: '用户中心', desc: '用户与权限管理', createdAt: '2024-07-01' },
-  { id: 2, name: '订单系统', desc: '订单与支付', createdAt: '2024-07-02' },
-];
+// 数据源相关
+const showBindDataSource = ref(false);
+const selectedDataSourceId = ref<number | null>(null);
+const showTestResult = ref(false);
+const testResultMessage = ref('');
 
-// mock数据源数据
-const mockDataSources = [
-  { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
-  { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
-  { id: 3, name: '人大金仓测试', type: '人大金仓', host: '192.168.1.20', port: '54321', username: 'kingbase', password: '******' },
-];
+// Toast消息
+const toastMessage = ref('');
+const toastType = ref<'success' | 'error'>('success');
 
-// mock项目绑定的数据源
-function mockProjectDataSources(projectId: number) {
-  if (projectId === 1) {
-    return [
-      { id: 1, name: '本地MySQL', type: 'MySQL', host: '127.0.0.1', port: '3306', username: 'root', password: '******' },
-    ];
-  } else if (projectId === 2) {
-    return [
-      { id: 2, name: 'PostgreSQL测试', type: 'PostgreSQL', host: '192.168.1.10', port: '5432', username: 'pguser', password: '******' },
-    ];
-  }
-  return [];
-}
-
-// mock版本数据
-function mockVersions(projectId: number) {
-  if (projectId === 1) {
-    return [
-      { id: 101, version: 'v1.0.0', desc: '初始版本', createdAt: '2024-07-01' },
-      { id: 102, version: 'v1.1.0', desc: '优化表结构', createdAt: '2024-07-05' },
-    ];
-  } else if (projectId === 2) {
-    return [
-      { id: 201, version: 'v1.0.0', desc: '订单初版', createdAt: '2024-07-02' },
-    ];
-  }
-  return [];
-}
-
+// 页面加载
 onMounted(() => {
-  const projectId = parseInt(route.params.id as string);
-  project.value = mockProjects.find(p => p.id === projectId);
-  if (project.value) {
-    versions.value = mockVersions(project.value.id);
-    projectDataSources.value = mockProjectDataSources(project.value.id);
-  }
-  // 初始化可用数据源（排除已绑定的）
-  availableDataSources.value = mockDataSources.filter(ds => 
-    !projectDataSources.value.some(pds => pds.id === ds.id)
-  );
+  loadProjectDetail();
 });
+
+// 加载项目详情
+async function loadProjectDetail() {
+  try {
+    loading.value = true;
+    error.value = '';
+    
+    const projectId = parseInt(route.params.id as string);
+    
+    // 获取项目详情（包含数据源信息）
+    const projectResponse = await request.get(`/api/project/detail-with-datasource/${projectId}`);
+    
+    // 从Result格式中获取数据
+    const projectData = projectResponse.data.data;
+    project.value = projectData.project;
+    currentDatasource.value = projectData.datasource || null;
+    
+    // 获取版本列表
+    const versionsResponse = await request.get(`/api/project-version/list/${projectId}`);
+    versions.value = versionsResponse.data.data;
+    
+    // 获取可用数据源列表
+    const datasourcesResponse = await request.get('/api/datasource/list');
+    availableDataSources.value = datasourcesResponse.data.data;
+    
+  } catch (err: any) {
+    error.value = err.message || '加载项目详情失败';
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 格式化日期
+function formatDate(dateString?: string): string {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleString('zh-CN');
+}
+
+// 显示Toast消息
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  toastMessage.value = message;
+  toastType.value = type;
+  setTimeout(() => {
+    toastMessage.value = '';
+  }, 3000);
+}
 
 // 项目编辑相关
 function editProject() {
@@ -341,28 +351,43 @@ function editProject() {
 
 function closeEditForm() {
   showEditForm.value = false;
+  editForm.value = {};
 }
 
-function submitEditForm() {
-  // 这里应该调用API更新项目信息
-  project.value = { ...editForm.value };
-  showEditForm.value = false;
+async function submitEditForm() {
+  try {
+    editFormLoading.value = true;
+    await request.put('/api/project/update', editForm.value);
+    if (project.value) {
+      project.value = { ...project.value, ...editForm.value } as Project;
+    }
+    showEditForm.value = false;
+    showToast('项目更新成功');
+  } catch (err: any) {
+    showToast(err.message || '项目更新失败', 'error');
+  } finally {
+    editFormLoading.value = false;
+  }
 }
 
 // 版本管理相关
 function openAddVersion() {
   versionFormMode.value = 'add';
-  versionForm.value = { version: '', desc: '' };
+  versionForm.value = { 
+    projectId: project.value?.id,
+    versionName: '', 
+    description: '' 
+  };
   showVersionForm.value = true;
 }
 
-function editVersion(ver: any) {
+function editVersion(ver: ProjectVersion) {
   versionFormMode.value = 'edit';
   versionForm.value = { ...ver };
   showVersionForm.value = true;
 }
 
-function viewVersion(ver: any) {
+function viewVersion(ver: ProjectVersion) {
   versionFormMode.value = 'detail';
   versionForm.value = { ...ver };
   showVersionForm.value = true;
@@ -370,102 +395,151 @@ function viewVersion(ver: any) {
 
 function closeVersionForm() {
   showVersionForm.value = false;
+  versionForm.value = {};
 }
 
-function submitVersionForm() {
-  if (versionFormMode.value === 'add') {
-    versions.value.push({ ...versionForm.value, id: Date.now(), createdAt: new Date().toISOString().slice(0,10) });
-  } else if (versionFormMode.value === 'edit') {
-    const idx = versions.value.findIndex((d: any) => d.id === versionForm.value.id);
-    if (idx > -1) versions.value[idx] = { ...versionForm.value };
+async function submitVersionForm() {
+  try {
+    versionFormLoading.value = true;
+    
+    if (versionFormMode.value === 'add') {
+      const response = await request.post('/api/project-version/create', versionForm.value);
+      versions.value.unshift(response.data.data);
+      showToast('版本创建成功');
+    } else if (versionFormMode.value === 'edit') {
+      await request.put('/api/project-version/update', versionForm.value);
+      const index = versions.value.findIndex(v => v.id === versionForm.value.id);
+      if (index > -1) {
+        versions.value[index] = { ...versions.value[index], ...versionForm.value };
+      }
+      showToast('版本更新成功');
+    }
+    
+    showVersionForm.value = false;
+  } catch (err: any) {
+    showToast(err.message || '操作失败', 'error');
+  } finally {
+    versionFormLoading.value = false;
   }
-  showVersionForm.value = false;
 }
 
-function confirmDeleteVersion(ver: any) {
+function confirmDeleteVersion(ver: ProjectVersion) {
   delTarget.value = ver;
   showDelete.value = true;
 }
 
-function deleteVersion() {
-  versions.value = versions.value.filter((d: any) => d.id !== delTarget.value.id);
-  showDelete.value = false;
-}
-
-function openCompare(ver: any) {
-  showCompare.value = true;
-  compareTargetId.value = ver.id;
-  compareResult.value = '字段A 新增\n字段B 删除\n字段C 类型变更';
-}
-
-function exportSql(ver: any) {
-  alert('导出SQL（mock）：' + ver.version);
-}
-
-function exportCompareSql() {
-  alert('导出对比SQL（mock）');
-}
-
-// 数据源管理相关函数
-function openAddDataSource() {
-  dataSourceFormMode.value = 'bind';
-  selectedDataSourceId.value = null;
-  showDataSourceForm.value = true;
-  // 更新可用数据源列表
-  availableDataSources.value = mockDataSources.filter(ds => 
-    !projectDataSources.value.some(pds => pds.id === ds.id)
-  );
-}
-
-function viewDataSource(ds: any) {
-  dataSourceFormMode.value = 'detail';
-  currentDataSource.value = ds;
-  showDataSourceForm.value = true;
-}
-
-function closeDataSourceForm() {
-  showDataSourceForm.value = false;
-  selectedDataSourceId.value = null;
-  currentDataSource.value = null;
-}
-
-function bindDataSource() {
-  if (!selectedDataSourceId.value) return;
+async function deleteVersion() {
+  if (!delTarget.value) return;
   
-  const dataSource = mockDataSources.find(ds => ds.id === selectedDataSourceId.value);
-  if (dataSource) {
-    projectDataSources.value.push({ ...dataSource });
-    // 更新可用数据源列表
-    availableDataSources.value = mockDataSources.filter(ds => 
-      !projectDataSources.value.some(pds => pds.id === ds.id)
-    );
+  try {
+    deleteLoading.value = true;
+    await request.delete(`/api/project-version/delete/${delTarget.value.id}`);
+    versions.value = versions.value.filter(v => v.id !== delTarget.value?.id);
+    showDelete.value = false;
+    showToast('版本删除成功');
+  } catch (err: any) {
+    showToast(err.message || '删除失败', 'error');
+  } finally {
+    deleteLoading.value = false;
   }
-  closeDataSourceForm();
 }
 
-function confirmUnbindDataSource(ds: any) {
-  unbindTarget.value = ds;
-  showUnbindDataSource.value = true;
+// 版本对比相关
+function openCompare(ver: ProjectVersion) {
+  compareBaseVersion.value = ver;
+  compareTargetId.value = null;
+  compareResult.value = '';
+  showCompare.value = true;
 }
 
-function unbindDataSource() {
-  if (unbindTarget.value) {
-    projectDataSources.value = projectDataSources.value.filter(ds => ds.id !== unbindTarget.value.id);
-    // 更新可用数据源列表
-    availableDataSources.value = mockDataSources.filter(ds => 
-      !projectDataSources.value.some(pds => pds.id === ds.id)
-    );
+async function performCompare() {
+  if (!compareBaseVersion.value || !compareTargetId.value) return;
+  
+  try {
+    compareLoading.value = true;
+    const response = await request.get(`/api/project-version/compare/${compareBaseVersion.value.id}/${compareTargetId.value}`);
+    compareResult.value = JSON.stringify(response.data.data, null, 2);
+  } catch (err: any) {
+    showToast(err.message || '对比失败', 'error');
+  } finally {
+    compareLoading.value = false;
   }
-  showUnbindDataSource.value = false;
-  unbindTarget.value = null;
 }
 
-function testDataSourceConn(ds: any) {
-  showDataSourceTest.value = true;
-  dataSourceTestMsg.value = '正在测试连接...';
-  setTimeout(() => {
-    dataSourceTestMsg.value = Math.random() > 0.2 ? '连接成功！' : '连接失败，请检查配置';
-  }, 800);
+async function exportSql(ver: ProjectVersion) {
+  try {
+    const response = await request.get(`/api/project-version/export-sql/${ver.id}`);
+    // 创建下载链接
+    const blob = new Blob([response.data.data.sql], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${ver.versionName}.sql`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    showToast('SQL导出成功');
+  } catch (err: any) {
+    showToast(err.message || '导出失败', 'error');
+  }
+}
+
+// 数据源相关
+function openBindDataSource() {
+  selectedDataSourceId.value = null;
+  showBindDataSource.value = true;
+}
+
+function closeBindDataSource() {
+  showBindDataSource.value = false;
+  selectedDataSourceId.value = null;
+}
+
+async function bindDataSource() {
+  if (!selectedDataSourceId.value || !project.value) return;
+  
+  try {
+    bindLoading.value = true;
+    await request.post('/api/project/bind-datasource', {
+      projectId: project.value.id,
+      datasourceId: selectedDataSourceId.value
+    });
+    
+    // 重新加载项目详情
+    await loadProjectDetail();
+    showBindDataSource.value = false;
+    showToast('数据源绑定成功');
+  } catch (err: any) {
+    showToast(err.message || '绑定失败', 'error');
+  } finally {
+    bindLoading.value = false;
+  }
+}
+
+async function unbindDataSource() {
+  if (!project.value) return;
+  
+  try {
+    await request.post(`/api/project/unbind-datasource/${project.value.id}`);
+    currentDatasource.value = null;
+    project.value.datasourceId = undefined;
+    showToast('数据源解绑成功');
+  } catch (err: any) {
+    showToast(err.message || '解绑失败', 'error');
+  }
+}
+
+async function testDataSourceConnection() {
+  if (!currentDatasource.value) return;
+  
+  try {
+    testResultMessage.value = '正在测试连接...';
+    showTestResult.value = true;
+    
+    const response = await request.post('/api/datasource/test-connection', currentDatasource.value);
+    testResultMessage.value = response.data.data ? '连接成功！' : '连接失败，请检查配置';
+  } catch (err: any) {
+    testResultMessage.value = '连接失败：' + (err.message || '未知错误');
+  }
 }
 </script>
 
@@ -506,6 +580,55 @@ function testDataSourceConn(ds: any) {
 .breadcrumb-current {
   color: #333;
   font-weight: 500;
+}
+
+/* 加载状态 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.loading p {
+  color: #909399;
+  font-size: 16px;
+}
+
+/* 错误提示 */
+.error-message {
+  background: #fde2e2;
+  color: #f56c6c;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #faeced;
+}
+
+.error-message p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.error-message button {
+  background: #f56c6c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.error-message button:hover {
+  background: #f78989;
 }
 
 /* 项目信息卡片 */
@@ -605,50 +728,69 @@ function testDataSourceConn(ds: any) {
   background: #337ecc;
 }
 
-.datasource-table {
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 8px;
-  overflow: hidden;
+.datasource-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.datasource-info {
+  flex: 1;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
   border: 1px solid #ebeef5;
 }
 
-.datasource-table th,
-.datasource-table td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #ebeef5;
+.datasource-info .info-item {
+  margin-bottom: 8px;
 }
 
-.datasource-table th {
-  background: #f5f7fa;
-  font-weight: 600;
-  color: #606266;
+.datasource-info .info-item:last-child {
+  margin-bottom: 0;
 }
 
-.datasource-table tbody tr:hover {
-  background: #f5f7fa;
+.datasource-info .info-item label {
+  color: #555;
+  font-size: 0.9rem;
 }
 
-.datasource-op {
+.datasource-info .info-item span {
+  color: #333;
+  font-size: 1rem;
+}
+
+.datasource-actions {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.datasource-actions .datasource-op {
   background: none;
   border: 1px solid #dcdfe6;
   color: #606266;
   padding: 4px 8px;
-  margin-right: 8px;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.datasource-op:hover {
+.datasource-actions .datasource-op:hover {
   color: #409eff;
   border-color: #409eff;
 }
 
-.datasource-op:last-child {
-  margin-right: 0;
+.no-datasource {
+  text-align: center;
+  color: #aaa;
+  padding: 20px;
+}
+
+.no-datasource p {
+  margin: 0;
+  font-size: 14px;
 }
 
 /* 版本管理 */
@@ -828,5 +970,28 @@ function testDataSourceConn(ds: any) {
   margin: 12px 0 0 0;
   font-size: 0.98rem;
   color: #333;
+}
+
+/* Toast消息样式 */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #409eff;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  opacity: 0.9;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.toast.success {
+  background-color: #67c23a;
+}
+
+.toast.error {
+  background-color: #f56c6c;
 }
 </style>

@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/login': 'http://localhost:8080',
       '/register': 'http://localhost:8080',
+      '/api': 'http://localhost:8080',
     }
   }
 })

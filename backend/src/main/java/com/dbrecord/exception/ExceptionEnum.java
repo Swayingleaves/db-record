@@ -1,4 +1,4 @@
-package ai.people.code.exception.enums;
+package com.dbrecord.exception;
 
 /**
  * 0000-- 通用成功代码

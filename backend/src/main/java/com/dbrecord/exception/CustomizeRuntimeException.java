@@ -1,7 +1,6 @@
-package ai.people.code.exception.type;
+package com.dbrecord.exception;
 
 
-import ai.people.code.exception.enums.ExceptionEnum;
 
 /**
  * @author yuanqinglong

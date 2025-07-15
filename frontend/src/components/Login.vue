@@ -1,6 +1,7 @@
 <template>
   <div class="login-bg">
     <div class="login-card">
+      <h1 class="app-title">DB-RECORD</h1>
       <h2>欢迎登录</h2>
       <form @submit.prevent="handleLogin">
         <div class="form-item">
@@ -9,7 +10,9 @@
         <div class="form-item">
           <input type="password" v-model="password" required placeholder="密码" autocomplete="current-password" />
         </div>
-        <button class="login-btn" type="submit">登录</button>
+        <button class="login-btn" type="submit" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
         <p v-if="error" class="error">{{ error }}</p>
       </form>
       <div class="register-tip">
@@ -22,25 +25,44 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import request from '../utils/request';
 
 const username = ref('');
 const password = ref('');
 const error = ref('');
+const loading = ref(false);
 const router = useRouter();
 
 const handleLogin = async () => {
+  if (loading.value) return;
+  
   error.value = '';
+  loading.value = true;
+  
   try {
-    const res = await axios.post('/login', { username: username.value, password: password.value });
-    if (res.data.success) {
-      localStorage.setItem('token', res.data.token);
+    const response = await request.post('/login', { 
+      username: username.value, 
+      password: password.value 
+    });
+    
+    // 请求成功，response.data 是 ApiResult 格式
+    const { data } = response.data;
+    
+    // 保存token和用户信息
+    if (data.token) {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.username);
+      localStorage.setItem('role', data.role);
+      
+      // 跳转到仪表板
       router.push('/dashboard');
     } else {
-      error.value = res.data.message || '登录失败';
+      error.value = '登录失败：未获取到token';
     }
-  } catch (e) {
-    error.value = '请求失败';
+  } catch (err: any) {
+    error.value = err.message || '登录失败';
+  } finally {
+    loading.value = false;
   }
 };
 </script>
@@ -64,6 +86,14 @@ const handleLogin = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+.app-title {
+  font-size: 2.2rem;
+  font-weight: bold;
+  font-style: italic;
+  color: #409eff;
+  margin-bottom: 20px;
+  text-align: center;
 }
 .login-card h2 {
   margin-bottom: 28px;
@@ -102,8 +132,12 @@ const handleLogin = async () => {
   margin-top: 6px;
   transition: background 0.2s;
 }
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background: #337ecc;
+}
+.login-btn:disabled {
+  background: #a0cfff;
+  cursor: not-allowed;
 }
 .error {
   color: #e74c3c;

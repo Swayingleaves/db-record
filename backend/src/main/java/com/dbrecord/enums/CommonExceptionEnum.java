@@ -1,4 +1,6 @@
-package ai.people.code.exception.enums;
+package com.dbrecord.enums;
+
+import com.dbrecord.exception.ExceptionEnum;
 
 /**
  * 常见异常枚举

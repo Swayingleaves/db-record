@@ -1,53 +1,52 @@
 <template>
-  <div class="home-container">
-    <h2>欢迎，{{ username || '用户' }}</h2>
-    <p>请通过左侧菜单进入Dashboard页面。</p>
-    <button @click="logout">退出登录</button>
+  <div class="home">
+    <h1>Welcome to DB-Record</h1>
+    <p>A database schema version control system</p>
+    <div class="actions">
+      <router-link to="/login" class="btn btn-primary">Login</router-link>
+      <router-link to="/register" class="btn btn-secondary">Register</router-link>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import axios from 'axios';
-
-const username = ref('');
-const router = useRouter();
-
-onMounted(async () => {
-  // 可选：从token解析用户名，或请求后端获取
-  const token = localStorage.getItem('token');
-  if (!token) {
-    router.push('/login');
-    return;
-  }
-  // 简单解析token（不安全，仅演示）
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    username.value = payload.sub;
-  } catch {
-    username.value = '';
-  }
-});
-
-const logout = () => {
-  localStorage.removeItem('token');
-  router.push('/login');
-};
+// 组件逻辑
 </script>
 
 <style scoped>
-.home-container {
-  max-width: 400px;
-  margin: 60px auto;
-  padding: 32px;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  background: #fff;
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
   text-align: center;
 }
-.home-container button {
-  margin-top: 24px;
-  padding: 8px 24px;
+
+.actions {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn:hover {
+  opacity: 0.8;
 }
 </style> 

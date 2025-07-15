@@ -6,7 +6,6 @@ import Dashboard from '../components/Dashboard.vue';
 import DataSourcePage from '../views/DataSourcePage.vue';
 import ProjectPage from '../views/ProjectPage.vue';
 import ProjectDetailPage from '../views/ProjectDetailPage.vue';
-import SqlConsolePage from '../views/SqlConsolePage.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -20,7 +19,6 @@ const routes = [
       { path: '', redirect: '/dashboard/project' },
       { path: 'project', name: 'Project', component: ProjectPage },
       { path: 'project/:id', name: 'ProjectDetail', component: ProjectDetailPage },
-      { path: 'sql', name: 'Sql', component: SqlConsolePage },
       { path: 'datasource', name: 'DataSource', component: DataSourcePage },
     ]
   }

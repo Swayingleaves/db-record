@@ -1,10 +1,9 @@
-package ai.people.common.model.response;
+package com.dbrecord.util;
 
 
-import ai.people.code.exception.enums.CommonExceptionEnum;
-import ai.people.code.exception.enums.ExceptionEnum;
-import ai.people.code.exception.type.AbstractCustomizeRuntimeException;
-import ai.people.code.exception.type.CustomizeRuntimeException;
+import com.dbrecord.enums.CommonExceptionEnum;
+import com.dbrecord.exception.CustomizeRuntimeException;
+import com.dbrecord.exception.ExceptionEnum;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
@@ -56,13 +55,6 @@ public class Result<T> {
         this.data = (T)  new Object();
     }
 
-    public Result(AbstractCustomizeRuntimeException exception) {
-        this.code = exception.getCode();
-        this.msg = exception.getMessage();
-        this.status = false;
-        this.data = (T)  new Object();
-    }
-
     public Result(int code, String msg, boolean status) {
         this.code = code;
         this.msg = msg;
@@ -70,6 +62,73 @@ public class Result<T> {
         this.data = (T)  new Object();
     }
 
+    /**
+     * 成功返回结果
+     * @param data 数据
+     * @return Result
+     */
+    public static <T> Result<T> success(T data) {
+        return new Result<>(data);
+    }
 
+    /**
+     * 成功返回结果
+     * @param data 数据
+     * @param message 消息
+     * @return Result
+     */
+    public static <T> Result<T> success(T data, String message) {
+        Result<T> result = new Result<>(data);
+        result.setMsg(message);
+        return result;
+    }
+
+    /**
+     * 成功返回结果
+     * @param message 消息
+     * @return Result
+     */
+    public static <T> Result<T> success(String message) {
+        Result<T> result = new Result<>();
+        result.setMsg(message);
+        return result;
+    }
+
+    /**
+     * 失败返回结果
+     * @param code 状态码
+     * @param message 消息
+     * @return Result
+     */
+    public static <T> Result<T> error(int code, String message) {
+        return new Result<>(code, message, false);
+    }
+
+    /**
+     * 失败返回结果
+     * @param message 消息
+     * @return Result
+     */
+    public static <T> Result<T> error(String message) {
+        return new Result<>(500, message, false);
+    }
+
+    /**
+     * 失败返回结果
+     * @param exceptionEnum 异常枚举
+     * @return Result
+     */
+    public static <T> Result<T> error(ExceptionEnum exceptionEnum) {
+        return new Result<>(exceptionEnum);
+    }
+
+    /**
+     * 失败返回结果
+     * @param exception 自定义异常
+     * @return Result
+     */
+    public static <T> Result<T> error(CustomizeRuntimeException exception) {
+        return new Result<>(exception);
+    }
 
 }
