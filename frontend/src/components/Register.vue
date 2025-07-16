@@ -42,7 +42,7 @@ const handleRegister = async () => {
   loading.value = true;
   
   try {
-    await request.post('/register', { 
+    await request.post('/api/register', { 
       username: username.value, 
       password: password.value 
     });
@@ -150,4 +150,4 @@ const handleRegister = async () => {
     max-width: 96vw;
   }
 }
-</style> 
+</style>

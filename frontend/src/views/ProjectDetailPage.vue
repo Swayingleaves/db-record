@@ -244,11 +244,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import request from '../utils/request';
 import type { Project, ProjectVersion, Datasource } from '../types/api';
 
 const route = useRoute();
+const router = useRouter();
 
 // 基础数据
 const project = ref<Project | null>(null);
@@ -388,9 +389,8 @@ function editVersion(ver: ProjectVersion) {
 }
 
 function viewVersion(ver: ProjectVersion) {
-  versionFormMode.value = 'detail';
-  versionForm.value = { ...ver };
-  showVersionForm.value = true;
+  // 跳转到版本详情页面
+  router.push(`/dashboard/project/${project.value?.id}/version/${ver.id}`);
 }
 
 function closeVersionForm() {

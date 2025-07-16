@@ -357,6 +357,105 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         return result;
     }
     
+    @Override
+    public Map<String, Object> getVersionCompleteStructure(Long projectVersionId) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 1. 获取数据库结构信息
+            VersionDatabaseSchema databaseSchema = getVersionDatabaseSchema(projectVersionId);
+            if (databaseSchema != null) {
+                Map<String, Object> databaseInfo = new HashMap<>();
+                databaseInfo.put("databaseName", databaseSchema.getDatabaseName());
+                databaseInfo.put("charset", databaseSchema.getCharset());
+                databaseInfo.put("collation", databaseSchema.getCollation());
+                databaseInfo.put("snapshotTime", databaseSchema.getSnapshotTime());
+                result.put("database", databaseInfo);
+            }
+            
+            // 2. 获取表结构列表
+            List<VersionTableStructure> tableStructures = getVersionTableStructures(projectVersionId);
+            List<Map<String, Object>> tables = new ArrayList<>();
+            
+            for (VersionTableStructure tableStructure : tableStructures) {
+                Map<String, Object> tableInfo = new HashMap<>();
+                tableInfo.put("id", tableStructure.getId());
+                tableInfo.put("tableName", tableStructure.getTableName());
+                tableInfo.put("tableComment", tableStructure.getTableComment());
+                tableInfo.put("tableType", tableStructure.getTableType());
+                tableInfo.put("engine", tableStructure.getEngine());
+                tableInfo.put("charset", tableStructure.getCharset());
+                tableInfo.put("collation", tableStructure.getCollation());
+                tableInfo.put("rowFormat", tableStructure.getRowFormat());
+                tableInfo.put("tableRows", tableStructure.getTableRows());
+                tableInfo.put("avgRowLength", tableStructure.getAvgRowLength());
+                tableInfo.put("dataLength", tableStructure.getDataLength());
+                tableInfo.put("indexLength", tableStructure.getIndexLength());
+                tableInfo.put("autoIncrement", tableStructure.getAutoIncrement());
+                
+                // 3. 获取表的字段信息
+                QueryWrapper<VersionTableColumn> columnQueryWrapper = new QueryWrapper<>();
+                columnQueryWrapper.eq("version_table_id", tableStructure.getId());
+                columnQueryWrapper.orderByAsc("ordinal_position");
+                List<VersionTableColumn> columns = versionTableColumnMapper.selectList(columnQueryWrapper);
+                
+                List<Map<String, Object>> columnList = new ArrayList<>();
+                for (VersionTableColumn column : columns) {
+                    Map<String, Object> columnInfo = new HashMap<>();
+                    columnInfo.put("columnName", column.getColumnName());
+                    columnInfo.put("ordinalPosition", column.getOrdinalPosition());
+                    columnInfo.put("columnDefault", column.getColumnDefault());
+                    columnInfo.put("isNullable", column.getIsNullable());
+                    columnInfo.put("dataType", column.getDataType());
+                    columnInfo.put("characterMaximumLength", column.getCharacterMaximumLength());
+                    columnInfo.put("characterOctetLength", column.getCharacterOctetLength());
+                    columnInfo.put("numericPrecision", column.getNumericPrecision());
+                    columnInfo.put("numericScale", column.getNumericScale());
+                    columnInfo.put("datetimePrecision", column.getDatetimePrecision());
+                    columnInfo.put("characterSetName", column.getCharacterSetName());
+                    columnInfo.put("collationName", column.getCollationName());
+                    columnInfo.put("columnType", column.getColumnType());
+                    columnInfo.put("columnKey", column.getColumnKey());
+                    columnInfo.put("extra", column.getExtra());
+                    columnInfo.put("columnComment", column.getColumnComment());
+                    columnList.add(columnInfo);
+                }
+                tableInfo.put("columns", columnList);
+                
+                // 4. 获取表的索引信息
+                QueryWrapper<VersionTableIndex> indexQueryWrapper = new QueryWrapper<>();
+                indexQueryWrapper.eq("version_table_id", tableStructure.getId());
+                indexQueryWrapper.orderByAsc("index_name");
+                List<VersionTableIndex> indexes = versionTableIndexMapper.selectList(indexQueryWrapper);
+                
+                List<Map<String, Object>> indexList = new ArrayList<>();
+                for (VersionTableIndex index : indexes) {
+                    Map<String, Object> indexInfo = new HashMap<>();
+                    indexInfo.put("indexName", index.getIndexName());
+                    indexInfo.put("indexType", index.getIndexType());
+                    indexInfo.put("isUnique", index.getIsUnique());
+                    indexInfo.put("isPrimary", index.getIsPrimary());
+                    indexInfo.put("columnNames", index.getColumnNames());
+                    indexInfo.put("subPart", index.getSubPart());
+                    indexInfo.put("indexComment", index.getIndexComment());
+                    indexList.add(indexInfo);
+                }
+                tableInfo.put("indexes", indexList);
+                
+                tables.add(tableInfo);
+            }
+            
+            result.put("tables", tables);
+            result.put("tableCount", tables.size());
+            
+        } catch (Exception e) {
+            log.error("获取版本完整结构失败: {}", e.getMessage(), e);
+            result.put("error", e.getMessage());
+        }
+        
+        return result;
+    }
+    
     /**
      * 获取数据库连接
      */
@@ -423,4 +522,4 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
         return Boolean.parseBoolean(value.toString());
     }
-} 
+}

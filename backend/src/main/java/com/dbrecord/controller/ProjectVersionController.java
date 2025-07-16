@@ -240,6 +240,28 @@ public class ProjectVersionController {
     }
     
     /**
+     * 获取版本完整结构
+     */
+    @GetMapping("/structure/{id}")
+    public Result<Map<String, Object>> getVersionStructure(@PathVariable Long id) {
+        try {
+            User currentUser = getCurrentUser();
+            
+            ProjectVersion version = projectVersionService.getById(id);
+            if (version == null || !version.getUserId().equals(currentUser.getId())) {
+                return Result.error(403, "版本不存在或无权限访问");
+            }
+            
+            Map<String, Object> structure = databaseSchemaService.getVersionCompleteStructure(id);
+            structure.put("version", version);
+            
+            return Result.success(structure);
+        } catch (Exception e) {
+            return Result.error("获取版本结构失败: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 手动捕获数据库结构
      */
     @PostMapping("/capture-schema/{id}")

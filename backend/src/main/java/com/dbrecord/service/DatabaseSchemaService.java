@@ -72,4 +72,11 @@ public interface DatabaseSchemaService {
      * @return 差异信息
      */
     Map<String, Object> compareVersions(Long fromVersionId, Long toVersionId);
-} 
+    
+    /**
+     * 获取版本的完整数据库结构信息
+     * @param projectVersionId 项目版本ID
+     * @return 完整的数据库结构信息，包括数据库、表、字段、索引
+     */
+    Map<String, Object> getVersionCompleteStructure(Long projectVersionId);
+}

@@ -9,12 +9,13 @@ interface ApiResult<T = any> {
 }
 
 const instance = axios.create({
-  baseURL: '/',
+  baseURL: '/api', // 统一加上 /api 前缀
   timeout: 10000,
 });
 
 // 请求拦截器
 instance.interceptors.request.use(config => {
+  console.log('Request URL:', (config.baseURL ?? '') + (config.url ?? ''));
   const token = localStorage.getItem('token');
   if (token) {
     config.headers = config.headers || {};
@@ -85,4 +86,4 @@ instance.interceptors.response.use(
 );
 
 export default instance; 
-export type { ApiResult }; 
+export type { ApiResult };

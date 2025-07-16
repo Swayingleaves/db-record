@@ -6,6 +6,7 @@ import Dashboard from '../components/Dashboard.vue';
 import DataSourcePage from '../views/DataSourcePage.vue';
 import ProjectPage from '../views/ProjectPage.vue';
 import ProjectDetailPage from '../views/ProjectDetailPage.vue';
+import VersionDetailPage from '../views/VersionDetailPage.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -19,6 +20,7 @@ const routes = [
       { path: '', redirect: '/dashboard/project' },
       { path: 'project', name: 'Project', component: ProjectPage },
       { path: 'project/:id', name: 'ProjectDetail', component: ProjectDetailPage },
+      { path: 'project/:projectId/version/:versionId', name: 'VersionDetail', component: VersionDetailPage },
       { path: 'datasource', name: 'DataSource', component: DataSourcePage },
     ]
   }

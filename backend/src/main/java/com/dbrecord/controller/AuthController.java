@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.dbrecord.config.JwtUtil;
 
 @RestController
+@RequestMapping("/")
 public class AuthController {
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -71,4 +72,4 @@ public class AuthController {
             return Result.error("注册失败: " + e.getMessage());
         }
     }
-} 
+}
