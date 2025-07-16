@@ -92,8 +92,8 @@ public class SqlRecordController {
                 sqlRecord.setExecuteTime(executeTime);
                 sqlRecord.setErrorMessage(e.getMessage());
                 
-                // 保存执行记录
-                sqlRecordService.save(sqlRecord);
+            // 保存执行记录
+            sqlRecordService.save(sqlRecord);
                 
                 return Result.error("SQL执行失败: " + e.getMessage());
             }

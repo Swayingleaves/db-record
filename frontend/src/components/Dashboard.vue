@@ -3,7 +3,7 @@
     <div class="dashboard-header">
       <h1>DB-RECORD</h1>
       <div class="user-info">
-        <span class="username">{{ username }}</span>
+          <span class="username">{{ username }}</span>
         <div class="dropdown" @click="dropdown = !dropdown">
           <span>▼</span>
           <div v-if="dropdown" class="dropdown-menu">
@@ -23,11 +23,11 @@
             数据源管理
           </router-link>
         </nav>
-      </div>
+        </div>
       
       <div class="main-content">
-        <router-view />
-      </div>
+          <router-view />
+        </div>
     </div>
   </div>
 </template>

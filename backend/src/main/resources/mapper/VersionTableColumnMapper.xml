@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dbrecord.mapper.VersionTableColumnMapper">
+
+    <resultMap id="BaseResultMap" type="com.dbrecord.entity.domain.VersionTableColumn">
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="versionTableId" column="version_table_id" jdbcType="BIGINT"/>
+        <result property="columnName" column="column_name" jdbcType="VARCHAR"/>
+        <result property="ordinalPosition" column="ordinal_position" jdbcType="INTEGER"/>
+        <result property="columnDefault" column="column_default" jdbcType="VARCHAR"/>
+        <result property="isNullable" column="is_nullable" jdbcType="VARCHAR"/>
+        <result property="dataType" column="data_type" jdbcType="VARCHAR"/>
+        <result property="characterMaximumLength" column="character_maximum_length" jdbcType="BIGINT"/>
+        <result property="characterOctetLength" column="character_octet_length" jdbcType="BIGINT"/>
+        <result property="numericPrecision" column="numeric_precision" jdbcType="INTEGER"/>
+        <result property="numericScale" column="numeric_scale" jdbcType="INTEGER"/>
+        <result property="datetimePrecision" column="datetime_precision" jdbcType="INTEGER"/>
+        <result property="characterSetName" column="character_set_name" jdbcType="VARCHAR"/>
+        <result property="collationName" column="collation_name" jdbcType="VARCHAR"/>
+        <result property="columnType" column="column_type" jdbcType="VARCHAR"/>
+        <result property="columnKey" column="column_key" jdbcType="VARCHAR"/>
+        <result property="extra" column="extra" jdbcType="VARCHAR"/>
+        <result property="columnComment" column="column_comment" jdbcType="VARCHAR"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, version_table_id, column_name, ordinal_position, column_default, is_nullable, data_type,
+        character_maximum_length, character_octet_length, numeric_precision, numeric_scale, datetime_precision,
+        character_set_name, collation_name, column_type, column_key, extra, column_comment, create_time
+    </sql>
+
+</mapper> 

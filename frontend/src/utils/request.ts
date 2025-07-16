@@ -54,10 +54,10 @@ instance.interceptors.response.use(
       const { status, data } = err.response;
       
       if (status === 401) {
-        localStorage.removeItem('token');
+      localStorage.removeItem('token');
         if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
-        }
+      window.location.href = '/login';
+    }
         return Promise.reject(new Error('未授权，请重新登录'));
       }
       
@@ -84,5 +84,5 @@ instance.interceptors.response.use(
   }
 );
 
-export default instance;
+export default instance; 
 export type { ApiResult }; 

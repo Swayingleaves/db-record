@@ -48,7 +48,7 @@ const handleRegister = async () => {
     });
     
     // 请求成功，response.data 是 ApiResult 格式
-    success.value = true;
+      success.value = true;
     setTimeout(() => router.push('/login'), 1500);
   } catch (err: any) {
     error.value = err.message || '注册失败';

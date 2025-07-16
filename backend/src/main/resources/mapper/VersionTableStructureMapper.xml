@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dbrecord.mapper.VersionTableStructureMapper">
+
+    <resultMap id="BaseResultMap" type="com.dbrecord.entity.domain.VersionTableStructure">
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="projectVersionId" column="project_version_id" jdbcType="BIGINT"/>
+        <result property="tableName" column="table_name" jdbcType="VARCHAR"/>
+        <result property="tableComment" column="table_comment" jdbcType="VARCHAR"/>
+        <result property="tableType" column="table_type" jdbcType="VARCHAR"/>
+        <result property="engine" column="engine" jdbcType="VARCHAR"/>
+        <result property="charset" column="charset" jdbcType="VARCHAR"/>
+        <result property="collation" column="collation" jdbcType="VARCHAR"/>
+        <result property="rowFormat" column="row_format" jdbcType="VARCHAR"/>
+        <result property="tableRows" column="table_rows" jdbcType="BIGINT"/>
+        <result property="avgRowLength" column="avg_row_length" jdbcType="BIGINT"/>
+        <result property="dataLength" column="data_length" jdbcType="BIGINT"/>
+        <result property="indexLength" column="index_length" jdbcType="BIGINT"/>
+        <result property="autoIncrement" column="auto_increment" jdbcType="BIGINT"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, project_version_id, table_name, table_comment, table_type, engine, charset, collation, 
+        row_format, table_rows, avg_row_length, data_length, index_length, auto_increment, create_time
+    </sql>
+
+</mapper> 

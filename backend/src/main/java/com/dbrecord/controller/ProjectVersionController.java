@@ -3,7 +3,12 @@ package com.dbrecord.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dbrecord.entity.domain.ProjectVersion;
 import com.dbrecord.entity.domain.User;
+import com.dbrecord.entity.domain.Project;
+import com.dbrecord.entity.domain.Datasource;
 import com.dbrecord.service.ProjectVersionService;
+import com.dbrecord.service.ProjectService;
+import com.dbrecord.service.DatasourceService;
+import com.dbrecord.service.DatabaseSchemaService;
 import com.dbrecord.util.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -23,6 +28,15 @@ public class ProjectVersionController {
     
     @Autowired
     private ProjectVersionService projectVersionService;
+    
+    @Autowired
+    private ProjectService projectService;
+    
+    @Autowired
+    private DatasourceService datasourceService;
+    
+    @Autowired
+    private DatabaseSchemaService databaseSchemaService;
     
     /**
      * 获取项目版本列表
@@ -65,8 +79,33 @@ public class ProjectVersionController {
                 return Result.error(400, "版本名称已存在");
             }
             
+            // 获取项目信息
+            Project project = projectService.getById(projectVersion.getProjectId());
+            if (project == null || !project.getUserId().equals(currentUser.getId())) {
+                return Result.error(403, "项目不存在或无权限访问");
+            }
+            
             boolean success = projectVersionService.save(projectVersion);
             if (success) {
+                // 如果项目关联了数据源，自动捕获数据库结构
+                if (project.getDatasourceId() != null) {
+                    Datasource datasource = datasourceService.getById(project.getDatasourceId());
+                    if (datasource != null && datasource.getUserId().equals(currentUser.getId())) {
+                        try {
+                            boolean schemaSuccess = databaseSchemaService.captureAndSaveDatabaseSchema(
+                                projectVersion.getId(), datasource, currentUser.getId());
+                            
+                            if (schemaSuccess) {
+                                return Result.success(projectVersion, "版本创建成功，数据库结构已捕获");
+                            } else {
+                                return Result.success(projectVersion, "版本创建成功，但数据库结构捕获失败");
+                            }
+                        } catch (Exception e) {
+                            return Result.success(projectVersion, "版本创建成功，但数据库结构捕获失败: " + e.getMessage());
+                        }
+                    }
+                }
+                
                 return Result.success(projectVersion, "版本创建成功");
             } else {
                 return Result.error("版本创建失败");
@@ -165,12 +204,10 @@ public class ProjectVersionController {
                 return Result.error(403, "版本不存在或无权限访问");
             }
             
-            // TODO: 实现版本对比逻辑
-            // 这里应该解析两个版本的schema_snapshot，进行结构对比
-            Map<String, Object> compareResult = new HashMap<>();
+            // 使用新的数据库结构比较服务
+            Map<String, Object> compareResult = databaseSchemaService.compareVersions(fromVersionId, toVersionId);
             compareResult.put("fromVersion", fromVersion.getVersionName());
             compareResult.put("toVersion", toVersion.getVersionName());
-            compareResult.put("changes", "版本对比功能待实现");
             
             return Result.success(compareResult);
         } catch (Exception e) {
@@ -191,15 +228,51 @@ public class ProjectVersionController {
                 return Result.error(403, "版本不存在或无权限访问");
             }
             
-            // TODO: 实现SQL导出逻辑
-            // 这里应该根据schema_snapshot生成SQL脚本
+            // TODO: 基于新的表结构生成SQL脚本
             Map<String, Object> result = new HashMap<>();
             result.put("version", version.getVersionName());
-            result.put("sql", "-- 版本 " + version.getVersionName() + " 的SQL脚本\n-- SQL导出功能待实现");
+            result.put("sql", "-- 版本 " + version.getVersionName() + " 的SQL脚本\n-- 基于新表结构的SQL导出功能待完善");
             
             return Result.success(result);
         } catch (Exception e) {
             return Result.error("导出SQL失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 手动捕获数据库结构
+     */
+    @PostMapping("/capture-schema/{id}")
+    public Result<Object> captureSchema(@PathVariable Long id) {
+        try {
+            User currentUser = getCurrentUser();
+            
+            ProjectVersion version = projectVersionService.getById(id);
+            if (version == null || !version.getUserId().equals(currentUser.getId())) {
+                return Result.error(403, "版本不存在或无权限访问");
+            }
+            
+            // 获取项目信息
+            Project project = projectService.getById(version.getProjectId());
+            if (project == null || project.getDatasourceId() == null) {
+                return Result.error(400, "项目未关联数据源");
+            }
+            
+            Datasource datasource = datasourceService.getById(project.getDatasourceId());
+            if (datasource == null || !datasource.getUserId().equals(currentUser.getId())) {
+                return Result.error(403, "数据源不存在或无权限访问");
+            }
+            
+            boolean success = databaseSchemaService.captureAndSaveDatabaseSchema(
+                version.getId(), datasource, currentUser.getId());
+            
+            if (success) {
+                return Result.success("数据库结构捕获成功");
+            } else {
+                return Result.error("数据库结构捕获失败");
+            }
+        } catch (Exception e) {
+            return Result.error("数据库结构捕获失败: " + e.getMessage());
         }
     }
     

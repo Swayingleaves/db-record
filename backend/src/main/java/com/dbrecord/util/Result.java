@@ -38,28 +38,28 @@ public class Result<T> {
     private T data;
 
     public Result(Object data) {
-        this.data = (T) (Objects.isNull(data) ? new Object() : data);
+        this.data = (T) data;
     }
 
     public Result(ExceptionEnum exceptionEnum) {
         this.code = exceptionEnum.getCode();
         this.msg = exceptionEnum.getMessage();
         this.status = exceptionEnum.getStatus();
-        this.data = (T)  new Object();
+        this.data = null;
     }
 
     public Result(CustomizeRuntimeException exception) {
         this.code = exception.getCode();
         this.msg = exception.getMessage();
         this.status = false;
-        this.data = (T)  new Object();
+        this.data = null;
     }
 
     public Result(int code, String msg, boolean status) {
         this.code = code;
         this.msg = msg;
         this.status = status;
-        this.data = (T)  new Object();
+        this.data = null;
     }
 
     /**
@@ -91,6 +91,7 @@ public class Result<T> {
     public static <T> Result<T> success(String message) {
         Result<T> result = new Result<>();
         result.setMsg(message);
+        result.setData(null);
         return result;
     }
 

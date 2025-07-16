@@ -59,12 +59,12 @@ public class AuthController {
         }
         
         try {
-            User user = new User();
-            user.setUsername(username);
-            user.setPassword(passwordEncoder.encode(password));
-            user.setStatus(1);
-            user.setRole("USER");
-            userService.save(user);
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setStatus(1);
+        user.setRole("USER");
+        userService.save(user);
             
             return Result.success("注册成功");
         } catch (Exception e) {

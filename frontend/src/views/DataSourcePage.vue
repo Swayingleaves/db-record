@@ -200,12 +200,12 @@ async function submitForm() {
     
     if (formMode.value === 'add') {
       await request.post('/api/datasource/create', form.value);
-      await loadDataSources();
-      showForm.value = false;
+        await loadDataSources();
+        showForm.value = false;
     } else if (formMode.value === 'edit') {
       await request.put('/api/datasource/update', form.value);
-      await loadDataSources();
-      showForm.value = false;
+        await loadDataSources();
+        showForm.value = false;
     }
   } catch (err: any) {
     error.value = err.message || '操作失败';
@@ -227,8 +227,8 @@ async function deleteDs() {
     deleting.value = true;
     error.value = '';
     await request.delete(`/api/datasource/delete/${delTarget.value.id}`);
-    await loadDataSources();
-    showDelete.value = false;
+      await loadDataSources();
+      showDelete.value = false;
   } catch (err: any) {
     error.value = err.message || '删除失败';
     console.error('删除失败:', err);

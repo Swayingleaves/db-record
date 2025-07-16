@@ -119,7 +119,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public Result<Object> handleException(Exception e, HttpServletRequest request) {
+    public Result<String> handleException(Exception e, HttpServletRequest request) {
         log.error("未知异常: {}, URL: {}", e.getMessage(), request.getRequestURL(), e);
         return Result.error(500, "系统异常，请联系管理员");
     }

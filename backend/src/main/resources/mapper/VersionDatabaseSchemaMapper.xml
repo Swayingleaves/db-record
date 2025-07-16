@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dbrecord.mapper.VersionDatabaseSchemaMapper">
+
+    <resultMap id="BaseResultMap" type="com.dbrecord.entity.domain.VersionDatabaseSchema">
+        <id property="id" column="id" jdbcType="BIGINT"/>
+        <result property="projectVersionId" column="project_version_id" jdbcType="BIGINT"/>
+        <result property="databaseName" column="database_name" jdbcType="VARCHAR"/>
+        <result property="charset" column="charset" jdbcType="VARCHAR"/>
+        <result property="collation" column="collation" jdbcType="VARCHAR"/>
+        <result property="snapshotTime" column="snapshot_time" jdbcType="TIMESTAMP"/>
+        <result property="userId" column="user_id" jdbcType="BIGINT"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, project_version_id, database_name, charset, collation, snapshot_time, user_id, create_time
+    </sql>
+
+</mapper> 

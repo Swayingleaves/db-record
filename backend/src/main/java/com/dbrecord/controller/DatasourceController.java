@@ -152,6 +152,23 @@ public class DatasourceController {
     }
     
     /**
+     * 测试数据源连接 (兼容前端调用)
+     */
+    @PostMapping("/test-connection")
+    public Result<String> testConnectionCompat(@RequestBody Datasource datasource) {
+        try {
+            boolean success = datasourceService.testConnection(datasource);
+            if (success) {
+                return Result.success("连接测试成功");
+            } else {
+                return Result.error("连接测试失败，请检查配置");
+            }
+        } catch (Exception e) {
+            return Result.error("连接测试失败: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 获取当前登录用户
      */
     private User getCurrentUser() {

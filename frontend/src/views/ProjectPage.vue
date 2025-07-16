@@ -79,7 +79,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 错误提示 -->
     <div v-if="error" class="error-toast">
       {{ error }}
@@ -170,12 +170,12 @@ async function submitForm() {
     
     if (formMode.value === 'add') {
       await request.post('/api/project/create', formData);
-      await loadProjects();
-      showForm.value = false;
+        await loadProjects();
+        showForm.value = false;
     } else if (formMode.value === 'edit') {
       await request.put('/api/project/update', formData);
-      await loadProjects();
-      showForm.value = false;
+        await loadProjects();
+        showForm.value = false;
     }
   } catch (err: any) {
     error.value = err.message || '操作失败';
@@ -197,8 +197,8 @@ async function deleteProject() {
     deleting.value = true;
     error.value = '';
     await request.delete(`/api/project/delete/${delTarget.value.id}`);
-    await loadProjects();
-    showDelete.value = false;
+      await loadProjects();
+      showDelete.value = false;
   } catch (err: any) {
     error.value = err.message || '删除失败';
     console.error('删除失败:', err);

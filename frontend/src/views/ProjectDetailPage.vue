@@ -20,34 +20,34 @@
 
     <!-- 项目内容 -->
     <div v-if="!loading && !error">
-      <!-- 项目基本信息 -->
-      <div class="project-info-card">
-        <div class="card-header">
-          <h3>项目信息</h3>
-          <button class="edit-btn" @click="editProject">编辑项目</button>
+    <!-- 项目基本信息 -->
+    <div class="project-info-card">
+      <div class="card-header">
+        <h3>项目信息</h3>
+        <button class="edit-btn" @click="editProject">编辑项目</button>
+      </div>
+      <div class="project-info">
+        <div class="info-item">
+          <label>项目名称：</label>
+          <span>{{ project?.name }}</span>
         </div>
-        <div class="project-info">
-          <div class="info-item">
-            <label>项目名称：</label>
-            <span>{{ project?.name }}</span>
-          </div>
-          <div class="info-item">
-            <label>项目描述：</label>
+        <div class="info-item">
+          <label>项目描述：</label>
             <span>{{ project?.description || '暂无描述' }}</span>
-          </div>
-          <div class="info-item">
-            <label>创建时间：</label>
+        </div>
+        <div class="info-item">
+          <label>创建时间：</label>
             <span>{{ formatDate(project?.createTime) }}</span>
-          </div>
         </div>
       </div>
+    </div>
 
-      <!-- 数据源管理 -->
-      <div class="datasource-section">
-        <div class="datasource-header">
-          <h3>数据源管理</h3>
+    <!-- 数据源管理 -->
+    <div class="datasource-section">
+      <div class="datasource-header">
+        <h3>数据源管理</h3>
           <button class="datasource-add-btn" @click="openBindDataSource">绑定数据源</button>
-        </div>
+      </div>
         <div class="datasource-content">
           <div v-if="currentDatasource" class="datasource-info">
             <div class="info-item">
@@ -79,41 +79,41 @@
             <p>暂未绑定数据源</p>
           </div>
         </div>
-      </div>
+    </div>
 
-      <!-- 版本管理 -->
-      <div class="version-section">
-        <div class="version-header">
-          <h3>版本管理</h3>
-          <button class="version-add-btn" @click="openAddVersion">新建版本</button>
-        </div>
-        <table class="version-table">
-          <thead>
-            <tr>
-              <th>版本号</th>
-              <th>描述</th>
-              <th>创建时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ver in versions" :key="ver.id">
+    <!-- 版本管理 -->
+    <div class="version-section">
+      <div class="version-header">
+        <h3>版本管理</h3>
+        <button class="version-add-btn" @click="openAddVersion">新建版本</button>
+      </div>
+      <table class="version-table">
+        <thead>
+          <tr>
+            <th>版本号</th>
+            <th>描述</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="ver in versions" :key="ver.id">
               <td>{{ ver.versionName }}</td>
               <td>{{ ver.description || '暂无描述' }}</td>
               <td>{{ formatDate(ver.createTime) }}</td>
-              <td>
-                <button class="version-op" @click="viewVersion(ver)">详情</button>
-                <button class="version-op" @click="editVersion(ver)">编辑</button>
-                <button class="version-op" @click="confirmDeleteVersion(ver)">删除</button>
-                <button class="version-op" @click="openCompare(ver)">对比</button>
-                <button class="version-op" @click="exportSql(ver)">导出SQL</button>
-              </td>
-            </tr>
-            <tr v-if="!versions.length">
-              <td colspan="4" style="text-align:center;color:#aaa;">暂无版本</td>
-            </tr>
-          </tbody>
-        </table>
+            <td>
+              <button class="version-op" @click="viewVersion(ver)">详情</button>
+              <button class="version-op" @click="editVersion(ver)">编辑</button>
+              <button class="version-op" @click="confirmDeleteVersion(ver)">删除</button>
+              <button class="version-op" @click="openCompare(ver)">对比</button>
+              <button class="version-op" @click="exportSql(ver)">导出SQL</button>
+            </td>
+          </tr>
+          <tr v-if="!versions.length">
+            <td colspan="4" style="text-align:center;color:#aaa;">暂无版本</td>
+          </tr>
+        </tbody>
+      </table>
       </div>
     </div>
 
@@ -208,14 +208,14 @@
     <div v-if="showBindDataSource" class="project-dialog-mask">
       <div class="project-dialog">
         <h4>绑定数据源</h4>
-        <div class="form-row">
-          <label>选择数据源</label>
-          <select v-model="selectedDataSourceId">
-            <option value="">请选择数据源</option>
-            <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
-          </select>
-        </div>
-        <div style="text-align:right;margin-top:18px;">
+          <div class="form-row">
+            <label>选择数据源</label>
+            <select v-model="selectedDataSourceId">
+              <option value="">请选择数据源</option>
+              <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
+            </select>
+          </div>
+          <div style="text-align:right;margin-top:18px;">
           <button class="project-cancel-btn" @click="closeBindDataSource">取消</button>
           <button class="project-save-btn" @click="bindDataSource" :disabled="!selectedDataSourceId || bindLoading">
             {{ bindLoading ? '绑定中...' : '绑定' }}
@@ -361,7 +361,7 @@ async function submitEditForm() {
     if (project.value) {
       project.value = { ...project.value, ...editForm.value } as Project;
     }
-    showEditForm.value = false;
+  showEditForm.value = false;
     showToast('项目更新成功');
   } catch (err: any) {
     showToast(err.message || '项目更新失败', 'error');
@@ -402,20 +402,20 @@ async function submitVersionForm() {
   try {
     versionFormLoading.value = true;
     
-    if (versionFormMode.value === 'add') {
+  if (versionFormMode.value === 'add') {
       const response = await request.post('/api/project-version/create', versionForm.value);
       versions.value.unshift(response.data.data);
       showToast('版本创建成功');
-    } else if (versionFormMode.value === 'edit') {
+  } else if (versionFormMode.value === 'edit') {
       await request.put('/api/project-version/update', versionForm.value);
       const index = versions.value.findIndex(v => v.id === versionForm.value.id);
       if (index > -1) {
         versions.value[index] = { ...versions.value[index], ...versionForm.value };
-      }
+  }
       showToast('版本更新成功');
     }
     
-    showVersionForm.value = false;
+  showVersionForm.value = false;
   } catch (err: any) {
     showToast(err.message || '操作失败', 'error');
   } finally {
@@ -435,7 +435,7 @@ async function deleteVersion() {
     deleteLoading.value = true;
     await request.delete(`/api/project-version/delete/${delTarget.value.id}`);
     versions.value = versions.value.filter(v => v.id !== delTarget.value?.id);
-    showDelete.value = false;
+  showDelete.value = false;
     showToast('版本删除成功');
   } catch (err: any) {
     showToast(err.message || '删除失败', 'error');
@@ -512,7 +512,7 @@ async function bindDataSource() {
     showToast(err.message || '绑定失败', 'error');
   } finally {
     bindLoading.value = false;
-  }
+}
 }
 
 async function unbindDataSource() {
@@ -525,7 +525,7 @@ async function unbindDataSource() {
     showToast('数据源解绑成功');
   } catch (err: any) {
     showToast(err.message || '解绑失败', 'error');
-  }
+}
 }
 
 async function testDataSourceConnection() {
