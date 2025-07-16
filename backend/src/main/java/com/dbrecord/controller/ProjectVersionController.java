@@ -228,15 +228,166 @@ public class ProjectVersionController {
                 return Result.error(403, "版本不存在或无权限访问");
             }
             
-            // TODO: 基于新的表结构生成SQL脚本
+            // 获取版本的完整数据库结构
+            Map<String, Object> completeStructure = databaseSchemaService.getVersionCompleteStructure(id);
+            
+            if (completeStructure.containsKey("error")) {
+                return Result.error("获取数据库结构失败: " + completeStructure.get("error"));
+            }
+            
+            // 生成SQL脚本
+            String sql = generateCompleteStructureSql(id, version.getVersionName(), completeStructure);
+            
             Map<String, Object> result = new HashMap<>();
             result.put("version", version.getVersionName());
-            result.put("sql", "-- 版本 " + version.getVersionName() + " 的SQL脚本\n-- 基于新表结构的SQL导出功能待完善");
+            result.put("sql", sql);
             
             return Result.success(result);
         } catch (Exception e) {
             return Result.error("导出SQL失败: " + e.getMessage());
         }
+    }
+    
+    /**
+     * 生成完整的数据库结构SQL
+     */
+    private String generateCompleteStructureSql(Long versionId, String versionName, Map<String, Object> completeStructure) {
+        StringBuilder sql = new StringBuilder();
+        
+        // 添加头部注释
+        sql.append("-- 数据库结构导出\n");
+        sql.append("-- 版本: ").append(versionName).append("\n");
+        sql.append("-- 版本ID: ").append(versionId).append("\n");
+        sql.append("-- 导出时间: ").append(new java.util.Date()).append("\n\n");
+        
+        // 添加数据库信息
+        @SuppressWarnings("unchecked")
+        Map<String, Object> databaseInfo = (Map<String, Object>) completeStructure.get("database");
+        if (databaseInfo != null) {
+            sql.append("-- 数据库信息\n");
+            sql.append("-- 数据库名: ").append(databaseInfo.get("databaseName")).append("\n");
+            sql.append("-- 字符集: ").append(databaseInfo.get("charset")).append("\n");
+            sql.append("-- 排序规则: ").append(databaseInfo.get("collation")).append("\n\n");
+        }
+        
+        // 生成表结构SQL
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tables = (List<Map<String, Object>>) completeStructure.get("tables");
+        if (tables != null && !tables.isEmpty()) {
+            for (Map<String, Object> table : tables) {
+                sql.append(generateCreateTableSql(table));
+                sql.append("\n");
+            }
+        } else {
+            sql.append("-- 该版本暂无表结构数据\n");
+        }
+        
+        return sql.toString();
+    }
+    
+    /**
+     * 生成创建表的SQL语句
+     */
+    private String generateCreateTableSql(Map<String, Object> table) {
+        StringBuilder sql = new StringBuilder();
+        
+        String tableName = (String) table.get("tableName");
+        String tableComment = (String) table.get("tableComment");
+        String engine = (String) table.get("engine");
+        String charset = (String) table.get("charset");
+        String collation = (String) table.get("collation");
+        Object autoIncrement = table.get("autoIncrement");
+        
+        sql.append("-- 表: ").append(tableName);
+        if (tableComment != null && !tableComment.isEmpty()) {
+            sql.append(" (").append(tableComment).append(")");
+        }
+        sql.append("\n");
+        sql.append("DROP TABLE IF EXISTS `").append(tableName).append("`;\n");
+        sql.append("CREATE TABLE `").append(tableName).append("` (\n");
+        
+        // 添加字段定义
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> columns = (List<Map<String, Object>>) table.get("columns");
+        if (columns != null && !columns.isEmpty()) {
+            for (int i = 0; i < columns.size(); i++) {
+                Map<String, Object> column = columns.get(i);
+                sql.append("  `").append(column.get("columnName")).append("` ");
+                sql.append(column.get("columnType"));
+                
+                // 处理NULL约束
+                if ("NO".equals(column.get("isNullable"))) {
+                    sql.append(" NOT NULL");
+                }
+                
+                // 处理默认值
+                Object defaultValue = column.get("columnDefault");
+                if (defaultValue != null && !"null".equalsIgnoreCase(defaultValue.toString())) {
+                    sql.append(" DEFAULT '").append(defaultValue).append("'");
+                }
+                
+                // 处理额外属性（如AUTO_INCREMENT）
+                String extra = (String) column.get("extra");
+                if (extra != null && !extra.isEmpty()) {
+                    sql.append(" ").append(extra.toUpperCase());
+                }
+                
+                // 处理字段注释
+                String columnComment = (String) column.get("columnComment");
+                if (columnComment != null && !columnComment.isEmpty()) {
+                    sql.append(" COMMENT '").append(columnComment.replace("'", "\\'")).append("'");
+                }
+                
+                if (i < columns.size() - 1) {
+                    sql.append(",");
+                }
+                sql.append("\n");
+            }
+        }
+        
+        // 添加索引定义
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> indexes = (List<Map<String, Object>>) table.get("indexes");
+        if (indexes != null && !indexes.isEmpty()) {
+            for (Map<String, Object> index : indexes) {
+                Boolean isPrimary = (Boolean) index.get("isPrimary");
+                Boolean isUnique = (Boolean) index.get("isUnique");
+                String indexName = (String) index.get("indexName");
+                String columnNames = (String) index.get("columnNames");
+                
+                sql.append(",\n  ");
+                
+                if (Boolean.TRUE.equals(isPrimary)) {
+                    sql.append("PRIMARY KEY (").append(columnNames).append(")");
+                } else if (Boolean.TRUE.equals(isUnique)) {
+                    sql.append("UNIQUE KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                } else {
+                    sql.append("KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                }
+            }
+        }
+        
+        sql.append("\n) ENGINE=").append(engine != null ? engine : "InnoDB");
+        
+        if (autoIncrement != null && !"0".equals(autoIncrement.toString())) {
+            sql.append(" AUTO_INCREMENT=").append(autoIncrement);
+        }
+        
+        if (charset != null) {
+            sql.append(" DEFAULT CHARSET=").append(charset);
+        }
+        
+        if (collation != null) {
+            sql.append(" COLLATE=").append(collation);
+        }
+        
+        if (tableComment != null && !tableComment.isEmpty()) {
+            sql.append(" COMMENT='").append(tableComment.replace("'", "\\'")).append("'");
+        }
+        
+        sql.append(";\n");
+        
+        return sql.toString();
     }
     
     /**
