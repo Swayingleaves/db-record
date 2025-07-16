@@ -64,4 +64,37 @@ public class SqlRecord implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    // 手动添加getter和setter方法以解决编译问题
+    public Long getUserId() {
+        return userId;
+    }
+    
+    public void setExecuteStatus(Integer executeStatus) {
+        this.executeStatus = executeStatus;
+    }
+    
+    public void setExecuteTime(Long executeTime) {
+        this.executeTime = executeTime;
+    }
+    
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+    
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
+    
+    public void setSqlContent(String sqlContent) {
+        this.sqlContent = sqlContent;
+    }
+    
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+    
+    public void setExecuteResult(String executeResult) {
+        this.executeResult = executeResult;
+    }
+}

@@ -240,6 +240,38 @@ public class ProjectVersionController {
     }
     
     /**
+     * 导出版本差异SQL
+     */
+    @GetMapping("/export-diff-sql/{fromVersionId}/{toVersionId}")
+    public Result<Map<String, Object>> exportDiffSql(@PathVariable Long fromVersionId, @PathVariable Long toVersionId) {
+        try {
+            User currentUser = getCurrentUser();
+            
+            ProjectVersion fromVersion = projectVersionService.getById(fromVersionId);
+            ProjectVersion toVersion = projectVersionService.getById(toVersionId);
+            
+            if (fromVersion == null || toVersion == null || 
+                !fromVersion.getUserId().equals(currentUser.getId()) || 
+                !toVersion.getUserId().equals(currentUser.getId())) {
+                return Result.error(403, "版本不存在或无权限访问");
+            }
+            
+            // 生成差异SQL
+            String diffSql = databaseSchemaService.generateDiffSql(fromVersionId, toVersionId, 
+                fromVersion.getVersionName(), toVersion.getVersionName());
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("fromVersion", fromVersion.getVersionName());
+            result.put("toVersion", toVersion.getVersionName());
+            result.put("sql", diffSql);
+            
+            return Result.success(result);
+        } catch (Exception e) {
+            return Result.error("导出差异SQL失败: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 获取版本完整结构
      */
     @GetMapping("/structure/{id}")

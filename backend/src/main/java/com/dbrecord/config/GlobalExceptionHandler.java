@@ -3,6 +3,8 @@ package com.dbrecord.config;
 import com.dbrecord.exception.CustomizeRuntimeException;
 import com.dbrecord.util.Result;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -23,6 +25,8 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * 处理自定义运行时异常
@@ -123,4 +127,4 @@ public class GlobalExceptionHandler {
         log.error("未知异常: {}, URL: {}", e.getMessage(), request.getRequestURL(), e);
         return Result.error(500, "系统异常，请联系管理员");
     }
-} 
+}

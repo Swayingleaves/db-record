@@ -89,7 +89,7 @@ public class Result<T> {
      * @return Result
      */
     public static <T> Result<T> success(String message) {
-        Result<T> result = new Result<>();
+        Result<T> result = new Result<T>();
         result.setMsg(message);
         result.setData(null);
         return result;
@@ -130,6 +130,14 @@ public class Result<T> {
      */
     public static <T> Result<T> error(CustomizeRuntimeException exception) {
         return new Result<>(exception);
+    }
+    
+    public void setMsg(String msg) {
+        this.msg = msg;
+    }
+    
+    public void setData(T data) {
+        this.data = data;
     }
 
 }

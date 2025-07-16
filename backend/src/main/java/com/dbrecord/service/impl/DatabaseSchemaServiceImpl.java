@@ -9,6 +9,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.*;
@@ -21,6 +23,8 @@ import java.util.*;
 @Slf4j
 @Service
 public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
+    
+    private static final Logger log = LoggerFactory.getLogger(DatabaseSchemaServiceImpl.class);
     
     @Autowired
     private VersionDatabaseSchemaMapper versionDatabaseSchemaMapper;
@@ -309,18 +313,26 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             }
             
             // 找出新增的表
-            List<String> addedTables = new ArrayList<>();
+            List<Map<String, Object>> addedTables = new ArrayList<>();
             for (String tableName : toTableMap.keySet()) {
                 if (!fromTableMap.containsKey(tableName)) {
-                    addedTables.add(tableName);
+                    VersionTableStructure table = toTableMap.get(tableName);
+                    Map<String, Object> tableInfo = new HashMap<>();
+                    tableInfo.put("tableName", table.getTableName());
+                    tableInfo.put("tableComment", table.getTableComment());
+                    addedTables.add(tableInfo);
                 }
             }
             
             // 找出删除的表
-            List<String> removedTables = new ArrayList<>();
+            List<Map<String, Object>> removedTables = new ArrayList<>();
             for (String tableName : fromTableMap.keySet()) {
                 if (!toTableMap.containsKey(tableName)) {
-                    removedTables.add(tableName);
+                    VersionTableStructure table = fromTableMap.get(tableName);
+                    Map<String, Object> tableInfo = new HashMap<>();
+                    tableInfo.put("tableName", table.getTableName());
+                    tableInfo.put("tableComment", table.getTableComment());
+                    removedTables.add(tableInfo);
                 }
             }
             
@@ -331,17 +343,12 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                     VersionTableStructure fromTable = fromTableMap.get(tableName);
                     VersionTableStructure toTable = toTableMap.get(tableName);
                     
-                    // 简单比较表注释
-                    if (!Objects.equals(fromTable.getTableComment(), toTable.getTableComment())) {
-                        Map<String, Object> change = new HashMap<>();
-                        change.put("tableName", tableName);
-                        change.put("changeType", "COMMENT_CHANGED");
-                        change.put("oldComment", fromTable.getTableComment());
-                        change.put("newComment", toTable.getTableComment());
-                        modifiedTables.add(change);
+                    Map<String, Object> tableChanges = compareTableDetails(fromTable, toTable);
+                    if (!tableChanges.isEmpty()) {
+                        tableChanges.put("tableName", tableName);
+                        tableChanges.put("tableComment", toTable.getTableComment());
+                        modifiedTables.add(tableChanges);
                     }
-                    
-                    // TODO: 详细的字段和索引比较
                 }
             }
             
@@ -355,6 +362,474 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
         
         return result;
+    }
+    
+    /**
+     * 比较两个表的详细差异
+     */
+    private Map<String, Object> compareTableDetails(VersionTableStructure fromTable, VersionTableStructure toTable) {
+        Map<String, Object> changes = new HashMap<>();
+        
+        try {
+            // 获取字段信息
+            List<VersionTableColumn> fromColumns = getTableColumns(fromTable.getId());
+            List<VersionTableColumn> toColumns = getTableColumns(toTable.getId());
+            
+            // 获取索引信息
+            List<VersionTableIndex> fromIndexes = getTableIndexes(fromTable.getId());
+            List<VersionTableIndex> toIndexes = getTableIndexes(toTable.getId());
+            
+            // 比较字段
+            Map<String, Object> columnChanges = compareColumns(fromColumns, toColumns);
+            if (!columnChanges.isEmpty()) {
+                changes.putAll(columnChanges);
+            }
+            
+            // 比较索引
+            Map<String, Object> indexChanges = compareIndexes(fromIndexes, toIndexes);
+            if (!indexChanges.isEmpty()) {
+                changes.putAll(indexChanges);
+            }
+            
+            // 比较表注释
+            if (!Objects.equals(fromTable.getTableComment(), toTable.getTableComment())) {
+                changes.put("commentChanged", true);
+                changes.put("oldComment", fromTable.getTableComment());
+                changes.put("newComment", toTable.getTableComment());
+            }
+            
+        } catch (Exception e) {
+            log.error("比较表详细信息失败: {}", e.getMessage(), e);
+        }
+        
+        return changes;
+    }
+    
+    /**
+     * 获取表的字段信息
+     */
+    private List<VersionTableColumn> getTableColumns(Long tableId) {
+        QueryWrapper<VersionTableColumn> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("version_table_id", tableId);
+        queryWrapper.orderByAsc("ordinal_position");
+        return versionTableColumnMapper.selectList(queryWrapper);
+    }
+    
+    /**
+     * 获取表的索引信息
+     */
+    private List<VersionTableIndex> getTableIndexes(Long tableId) {
+        QueryWrapper<VersionTableIndex> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("version_table_id", tableId);
+        queryWrapper.orderByAsc("index_name");
+        return versionTableIndexMapper.selectList(queryWrapper);
+    }
+    
+    /**
+     * 比较字段变化
+     */
+    private Map<String, Object> compareColumns(List<VersionTableColumn> fromColumns, List<VersionTableColumn> toColumns) {
+        Map<String, Object> changes = new HashMap<>();
+        
+        // 转换为Map便于比较
+        Map<String, VersionTableColumn> fromColumnMap = new HashMap<>();
+        Map<String, VersionTableColumn> toColumnMap = new HashMap<>();
+        
+        for (VersionTableColumn column : fromColumns) {
+            fromColumnMap.put(column.getColumnName(), column);
+        }
+        for (VersionTableColumn column : toColumns) {
+            toColumnMap.put(column.getColumnName(), column);
+        }
+        
+        // 新增字段
+        List<Map<String, Object>> addedColumns = new ArrayList<>();
+        for (String columnName : toColumnMap.keySet()) {
+            if (!fromColumnMap.containsKey(columnName)) {
+                VersionTableColumn column = toColumnMap.get(columnName);
+                Map<String, Object> columnInfo = new HashMap<>();
+                columnInfo.put("columnName", column.getColumnName());
+                columnInfo.put("columnType", column.getColumnType());
+                columnInfo.put("columnComment", column.getColumnComment());
+                addedColumns.add(columnInfo);
+            }
+        }
+        
+        // 删除字段
+        List<Map<String, Object>> removedColumns = new ArrayList<>();
+        for (String columnName : fromColumnMap.keySet()) {
+            if (!toColumnMap.containsKey(columnName)) {
+                VersionTableColumn column = fromColumnMap.get(columnName);
+                Map<String, Object> columnInfo = new HashMap<>();
+                columnInfo.put("columnName", column.getColumnName());
+                columnInfo.put("columnType", column.getColumnType());
+                columnInfo.put("columnComment", column.getColumnComment());
+                removedColumns.add(columnInfo);
+            }
+        }
+        
+        // 修改字段
+        List<Map<String, Object>> modifiedColumns = new ArrayList<>();
+        for (String columnName : fromColumnMap.keySet()) {
+            if (toColumnMap.containsKey(columnName)) {
+                VersionTableColumn fromColumn = fromColumnMap.get(columnName);
+                VersionTableColumn toColumn = toColumnMap.get(columnName);
+                
+                if (!isColumnEqual(fromColumn, toColumn)) {
+                    Map<String, Object> columnInfo = new HashMap<>();
+                    columnInfo.put("columnName", columnName);
+                    columnInfo.put("oldType", fromColumn.getColumnType());
+                    columnInfo.put("newType", toColumn.getColumnType());
+                    columnInfo.put("oldComment", fromColumn.getColumnComment());
+                    columnInfo.put("newComment", toColumn.getColumnComment());
+                    modifiedColumns.add(columnInfo);
+                }
+            }
+        }
+        
+        if (!addedColumns.isEmpty()) {
+            changes.put("addedColumns", addedColumns);
+        }
+        if (!removedColumns.isEmpty()) {
+            changes.put("removedColumns", removedColumns);
+        }
+        if (!modifiedColumns.isEmpty()) {
+            changes.put("modifiedColumns", modifiedColumns);
+        }
+        
+        return changes;
+    }
+    
+    /**
+     * 比较索引变化
+     */
+    private Map<String, Object> compareIndexes(List<VersionTableIndex> fromIndexes, List<VersionTableIndex> toIndexes) {
+        Map<String, Object> changes = new HashMap<>();
+        
+        // 转换为Map便于比较
+        Map<String, VersionTableIndex> fromIndexMap = new HashMap<>();
+        Map<String, VersionTableIndex> toIndexMap = new HashMap<>();
+        
+        for (VersionTableIndex index : fromIndexes) {
+            fromIndexMap.put(index.getIndexName(), index);
+        }
+        for (VersionTableIndex index : toIndexes) {
+            toIndexMap.put(index.getIndexName(), index);
+        }
+        
+        // 新增索引
+        List<Map<String, Object>> addedIndexes = new ArrayList<>();
+        for (String indexName : toIndexMap.keySet()) {
+            if (!fromIndexMap.containsKey(indexName)) {
+                VersionTableIndex index = toIndexMap.get(indexName);
+                Map<String, Object> indexInfo = new HashMap<>();
+                indexInfo.put("indexName", index.getIndexName());
+                indexInfo.put("indexType", index.getIndexType());
+                indexInfo.put("columnNames", index.getColumnNames());
+                indexInfo.put("isUnique", index.getIsUnique());
+                addedIndexes.add(indexInfo);
+            }
+        }
+        
+        // 删除索引
+        List<Map<String, Object>> removedIndexes = new ArrayList<>();
+        for (String indexName : fromIndexMap.keySet()) {
+            if (!toIndexMap.containsKey(indexName)) {
+                VersionTableIndex index = fromIndexMap.get(indexName);
+                Map<String, Object> indexInfo = new HashMap<>();
+                indexInfo.put("indexName", index.getIndexName());
+                indexInfo.put("indexType", index.getIndexType());
+                indexInfo.put("columnNames", index.getColumnNames());
+                indexInfo.put("isUnique", index.getIsUnique());
+                removedIndexes.add(indexInfo);
+            }
+        }
+        
+        // 修改索引
+        List<Map<String, Object>> modifiedIndexes = new ArrayList<>();
+        for (String indexName : fromIndexMap.keySet()) {
+            if (toIndexMap.containsKey(indexName)) {
+                VersionTableIndex fromIndex = fromIndexMap.get(indexName);
+                VersionTableIndex toIndex = toIndexMap.get(indexName);
+                
+                if (!isIndexEqual(fromIndex, toIndex)) {
+                    Map<String, Object> indexInfo = new HashMap<>();
+                    indexInfo.put("indexName", indexName);
+                    indexInfo.put("oldType", fromIndex.getIndexType());
+                    indexInfo.put("newType", toIndex.getIndexType());
+                    indexInfo.put("oldColumns", fromIndex.getColumnNames());
+                    indexInfo.put("newColumns", toIndex.getColumnNames());
+                    modifiedIndexes.add(indexInfo);
+                }
+            }
+        }
+        
+        if (!addedIndexes.isEmpty()) {
+            changes.put("addedIndexes", addedIndexes);
+        }
+        if (!removedIndexes.isEmpty()) {
+            changes.put("removedIndexes", removedIndexes);
+        }
+        if (!modifiedIndexes.isEmpty()) {
+            changes.put("modifiedIndexes", modifiedIndexes);
+        }
+        
+        return changes;
+    }
+    
+    /**
+     * 判断两个字段是否相等
+     */
+    private boolean isColumnEqual(VersionTableColumn col1, VersionTableColumn col2) {
+        return Objects.equals(col1.getColumnType(), col2.getColumnType()) &&
+               Objects.equals(col1.getIsNullable(), col2.getIsNullable()) &&
+               Objects.equals(col1.getColumnDefault(), col2.getColumnDefault()) &&
+               Objects.equals(col1.getColumnComment(), col2.getColumnComment()) &&
+               Objects.equals(col1.getColumnKey(), col2.getColumnKey()) &&
+               Objects.equals(col1.getExtra(), col2.getExtra());
+    }
+    
+    /**
+     * 判断两个索引是否相等
+     */
+    private boolean isIndexEqual(VersionTableIndex idx1, VersionTableIndex idx2) {
+        return Objects.equals(idx1.getIndexType(), idx2.getIndexType()) &&
+               Objects.equals(idx1.getColumnNames(), idx2.getColumnNames()) &&
+               Objects.equals(idx1.getIsUnique(), idx2.getIsUnique()) &&
+               Objects.equals(idx1.getIsPrimary(), idx2.getIsPrimary());
+    }
+    
+    @Override
+    public String generateDiffSql(Long fromVersionId, Long toVersionId, String fromVersionName, String toVersionName) {
+        // 获取版本对比结果
+        Map<String, Object> compareResult = compareVersions(fromVersionId, toVersionId);
+        
+        StringBuilder sqlBuilder = new StringBuilder();
+        sqlBuilder.append("-- 版本差异SQL: ").append(fromVersionName)
+                 .append(" -> ").append(toVersionName).append("\n");
+        sqlBuilder.append("-- 生成时间: ").append(new java.util.Date()).append("\n\n");
+        
+        // 处理新增的表
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addedTables = (List<Map<String, Object>>) compareResult.get("addedTables");
+        if (addedTables != null && !addedTables.isEmpty()) {
+            sqlBuilder.append("-- 新增的表\n");
+            for (Map<String, Object> table : addedTables) {
+                String createTableSql = generateCreateTableSql(toVersionId, (String) table.get("tableName"));
+                sqlBuilder.append(createTableSql).append("\n");
+            }
+            sqlBuilder.append("\n");
+        }
+        
+        // 处理删除的表
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> removedTables = (List<Map<String, Object>>) compareResult.get("removedTables");
+        if (removedTables != null && !removedTables.isEmpty()) {
+            sqlBuilder.append("-- 删除的表\n");
+            for (Map<String, Object> table : removedTables) {
+                sqlBuilder.append("DROP TABLE IF EXISTS `").append(table.get("tableName")).append("`;").append("\n");
+            }
+            sqlBuilder.append("\n");
+        }
+        
+        // 处理修改的表
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> modifiedTables = (List<Map<String, Object>>) compareResult.get("modifiedTables");
+        if (modifiedTables != null && !modifiedTables.isEmpty()) {
+            sqlBuilder.append("-- 修改的表\n");
+            for (Map<String, Object> table : modifiedTables) {
+                String alterTableSql = generateAlterTableSql((String) table.get("tableName"), table);
+                sqlBuilder.append(alterTableSql).append("\n");
+            }
+            sqlBuilder.append("\n");
+        }
+        
+        return sqlBuilder.toString();
+    }
+    
+    private String generateCreateTableSql(Long versionId, String tableName) {
+        try {
+            // 获取表结构信息
+            List<VersionTableStructure> tables = versionTableStructureMapper.selectList(
+                new QueryWrapper<VersionTableStructure>()
+                    .eq("project_version_id", versionId)
+                    .eq("table_name", tableName)
+            );
+            
+            if (tables.isEmpty()) {
+                return "-- CREATE TABLE " + tableName + "; -- 表结构信息未找到";
+            }
+            
+            VersionTableStructure table = tables.get(0);
+            
+            // 获取字段信息
+            List<VersionTableColumn> columns = getTableColumns(table.getId());
+            
+            // 获取索引信息
+            List<VersionTableIndex> indexes = getTableIndexes(table.getId());
+            
+            StringBuilder createSql = new StringBuilder();
+            createSql.append("CREATE TABLE `").append(tableName).append("` (\n");
+            
+            // 添加字段定义
+            for (int i = 0; i < columns.size(); i++) {
+                VersionTableColumn column = columns.get(i);
+                createSql.append("  `").append(column.getColumnName()).append("` ");
+                createSql.append(column.getColumnType());
+                
+                if ("NO".equals(column.getIsNullable())) {
+                    createSql.append(" NOT NULL");
+                }
+                
+                if (column.getColumnDefault() != null) {
+                    createSql.append(" DEFAULT '").append(column.getColumnDefault()).append("'");
+                }
+                
+                if (column.getColumnComment() != null && !column.getColumnComment().isEmpty()) {
+                    createSql.append(" COMMENT '").append(column.getColumnComment()).append("'");
+                }
+                
+                if (i < columns.size() - 1 || !indexes.isEmpty()) {
+                    createSql.append(",");
+                }
+                createSql.append("\n");
+            }
+            
+            // 添加索引定义
+            for (int i = 0; i < indexes.size(); i++) {
+                VersionTableIndex index = indexes.get(i);
+                if (Boolean.TRUE.equals(index.getIsPrimary())) {
+                    createSql.append("  PRIMARY KEY (").append(index.getColumnNames()).append(")");
+                } else if (Boolean.TRUE.equals(index.getIsUnique())) {
+                    createSql.append("  UNIQUE KEY `").append(index.getIndexName()).append("` (").append(index.getColumnNames()).append(")");
+                } else {
+                    createSql.append("  KEY `").append(index.getIndexName()).append("` (").append(index.getColumnNames()).append(")");
+                }
+                
+                if (i < indexes.size() - 1) {
+                    createSql.append(",");
+                }
+                createSql.append("\n");
+            }
+            
+            createSql.append(")");
+            
+            // 添加表选项
+            if (table.getEngine() != null) {
+                createSql.append(" ENGINE=").append(table.getEngine());
+            }
+            
+            if (table.getCharset() != null) {
+                createSql.append(" DEFAULT CHARSET=").append(table.getCharset());
+            }
+            
+            if (table.getTableComment() != null && !table.getTableComment().isEmpty()) {
+                createSql.append(" COMMENT='").append(table.getTableComment()).append("'");
+            }
+            
+            createSql.append(";");
+            
+            return createSql.toString();
+        } catch (Exception e) {
+            return "-- CREATE TABLE " + tableName + "; -- 生成失败: " + e.getMessage();
+        }
+    }
+    
+    private String generateAlterTableSql(String tableName, Map<String, Object> tableChanges) {
+        StringBuilder alterSql = new StringBuilder();
+        
+        // 处理新增字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addedColumns = (List<Map<String, Object>>) tableChanges.get("addedColumns");
+        if (addedColumns != null && !addedColumns.isEmpty()) {
+            for (Map<String, Object> column : addedColumns) {
+                alterSql.append("ALTER TABLE `").append(tableName).append("` ADD COLUMN `")
+                       .append(column.get("columnName")).append("` ")
+                       .append(column.get("columnType"));
+                       
+                if ("NO".equals(column.get("isNullable"))) {
+                    alterSql.append(" NOT NULL");
+                }
+                
+                if (column.get("columnDefault") != null) {
+                    alterSql.append(" DEFAULT '").append(column.get("columnDefault")).append("'");
+                }
+                
+                if (column.get("columnComment") != null && !column.get("columnComment").toString().isEmpty()) {
+                    alterSql.append(" COMMENT '").append(column.get("columnComment")).append("'");
+                }
+                
+                alterSql.append(";\n");
+            }
+        }
+        
+        // 处理删除字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> removedColumns = (List<Map<String, Object>>) tableChanges.get("removedColumns");
+        if (removedColumns != null && !removedColumns.isEmpty()) {
+            for (Map<String, Object> column : removedColumns) {
+                alterSql.append("ALTER TABLE `").append(tableName).append("` DROP COLUMN `")
+                       .append(column.get("columnName")).append("`;").append("\n");
+            }
+        }
+        
+        // 处理修改字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> modifiedColumns = (List<Map<String, Object>>) tableChanges.get("modifiedColumns");
+        if (modifiedColumns != null && !modifiedColumns.isEmpty()) {
+            for (Map<String, Object> column : modifiedColumns) {
+                alterSql.append("ALTER TABLE `").append(tableName).append("` MODIFY COLUMN `")
+                       .append(column.get("columnName")).append("` ")
+                       .append(column.get("newType"));
+                       
+                if ("NO".equals(column.get("isNullable"))) {
+                    alterSql.append(" NOT NULL");
+                }
+                
+                if (column.get("columnDefault") != null) {
+                    alterSql.append(" DEFAULT '").append(column.get("columnDefault")).append("'");
+                }
+                
+                if (column.get("newComment") != null && !column.get("newComment").toString().isEmpty()) {
+                    alterSql.append(" COMMENT '").append(column.get("newComment")).append("'");
+                }
+                
+                alterSql.append(";\n");
+            }
+        }
+        
+        // 处理新增索引
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addedIndexes = (List<Map<String, Object>>) tableChanges.get("addedIndexes");
+        if (addedIndexes != null && !addedIndexes.isEmpty()) {
+            for (Map<String, Object> index : addedIndexes) {
+                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
+                    alterSql.append("ALTER TABLE `").append(tableName).append("` ADD PRIMARY KEY (")
+                           .append(index.get("columnNames")).append(");\n");
+                } else {
+                    String indexType = Boolean.TRUE.equals(index.get("isUnique")) ? "UNIQUE INDEX" : "INDEX";
+                    alterSql.append("ALTER TABLE `").append(tableName).append("` ADD ").append(indexType)
+                           .append(" `").append(index.get("indexName")).append("` (")
+                           .append(index.get("columnNames")).append(");\n");
+                }
+            }
+        }
+        
+        // 处理删除索引
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> removedIndexes = (List<Map<String, Object>>) tableChanges.get("removedIndexes");
+        if (removedIndexes != null && !removedIndexes.isEmpty()) {
+            for (Map<String, Object> index : removedIndexes) {
+                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
+                    alterSql.append("ALTER TABLE `").append(tableName).append("` DROP PRIMARY KEY;\n");
+                } else {
+                    alterSql.append("ALTER TABLE `").append(tableName).append("` DROP INDEX `")
+                           .append(index.get("indexName")).append("`;").append("\n");
+                }
+            }
+        }
+        
+        return alterSql.toString();
     }
     
     @Override

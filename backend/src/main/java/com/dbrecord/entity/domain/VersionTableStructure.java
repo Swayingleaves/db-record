@@ -94,4 +94,109 @@ public class VersionTableStructure implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    // 手动添加getter方法以解决编译问题
+    public Long getId() {
+        return id;
+    }
+    
+    public String getEngine() {
+        return engine;
+    }
+    
+    public String getCharset() {
+        return charset;
+    }
+    
+    public String getTableComment() {
+        return tableComment;
+    }
+    
+    public String getTableName() {
+        return tableName;
+    }
+    
+    public String getTableType() {
+        return tableType;
+    }
+    
+    public String getCollation() {
+        return collation;
+    }
+    
+    public String getRowFormat() {
+        return rowFormat;
+    }
+    
+    public Long getTableRows() {
+        return tableRows;
+    }
+    
+    public Long getAvgRowLength() {
+        return avgRowLength;
+    }
+    
+    public Long getDataLength() {
+        return dataLength;
+    }
+    
+    public Long getIndexLength() {
+        return indexLength;
+    }
+    
+    public Long getAutoIncrement() {
+        return autoIncrement;
+    }
+    
+    public void setProjectVersionId(Long projectVersionId) {
+        this.projectVersionId = projectVersionId;
+    }
+    
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
+    }
+    
+    public void setTableComment(String tableComment) {
+        this.tableComment = tableComment;
+    }
+    
+    public void setTableType(String tableType) {
+        this.tableType = tableType;
+    }
+    
+    public void setEngine(String engine) {
+        this.engine = engine;
+    }
+    
+    public void setCharset(String charset) {
+        this.charset = charset;
+    }
+    
+    public void setCollation(String collation) {
+        this.collation = collation;
+    }
+    
+    public void setRowFormat(String rowFormat) {
+        this.rowFormat = rowFormat;
+    }
+    
+    public void setTableRows(Long tableRows) {
+        this.tableRows = tableRows;
+    }
+    
+    public void setAvgRowLength(Long avgRowLength) {
+        this.avgRowLength = avgRowLength;
+    }
+    
+    public void setDataLength(Long dataLength) {
+        this.dataLength = dataLength;
+    }
+    
+    public void setIndexLength(Long indexLength) {
+        this.indexLength = indexLength;
+    }
+    
+    public void setAutoIncrement(Long autoIncrement) {
+        this.autoIncrement = autoIncrement;
+    }
+}

@@ -7,6 +7,7 @@ import DataSourcePage from '../views/DataSourcePage.vue';
 import ProjectPage from '../views/ProjectPage.vue';
 import ProjectDetailPage from '../views/ProjectDetailPage.vue';
 import VersionDetailPage from '../views/VersionDetailPage.vue';
+import VersionComparePage from '../views/VersionComparePage.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: Home },
@@ -21,6 +22,7 @@ const routes = [
       { path: 'project', name: 'Project', component: ProjectPage },
       { path: 'project/:id', name: 'ProjectDetail', component: ProjectDetailPage },
       { path: 'project/:projectId/version/:versionId', name: 'VersionDetail', component: VersionDetailPage },
+      { path: 'project/:projectId/version/:versionId/compare', name: 'VersionCompare', component: VersionComparePage },
       { path: 'datasource', name: 'DataSource', component: DataSourcePage },
     ]
   }

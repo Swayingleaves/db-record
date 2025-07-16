@@ -59,4 +59,28 @@ public class Project implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    public Long getDatasourceId() {
+        return datasourceId;
+    }
+    
+    public Long getUserId() {
+        return userId;
+    }
+    
+    public void setDatasourceId(Long datasourceId) {
+        this.datasourceId = datasourceId;
+    }
+    
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+    
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+    
+    public Long getId() {
+        return id;
+    }
+}

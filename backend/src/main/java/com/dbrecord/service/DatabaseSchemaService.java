@@ -79,4 +79,14 @@ public interface DatabaseSchemaService {
      * @return 完整的数据库结构信息，包括数据库、表、字段、索引
      */
     Map<String, Object> getVersionCompleteStructure(Long projectVersionId);
+    
+    /**
+     * 生成版本差异SQL
+     * @param fromVersionId 源版本ID
+     * @param toVersionId 目标版本ID
+     * @param fromVersionName 源版本名称
+     * @param toVersionName 目标版本名称
+     * @return 差异SQL字符串
+     */
+    String generateDiffSql(Long fromVersionId, Long toVersionId, String fromVersionName, String toVersionName);
 }

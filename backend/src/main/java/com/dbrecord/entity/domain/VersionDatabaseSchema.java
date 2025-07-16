@@ -59,4 +59,45 @@ public class VersionDatabaseSchema implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    // 手动添加getter方法以解决编译问题
+    public String getDatabaseName() {
+        return databaseName;
+    }
+    
+    public String getCharset() {
+        return charset;
+    }
+    
+    public String getCollation() {
+        return collation;
+    }
+    
+    public LocalDateTime getSnapshotTime() {
+        return snapshotTime;
+    }
+    
+    public void setProjectVersionId(Long projectVersionId) {
+        this.projectVersionId = projectVersionId;
+    }
+    
+    public void setDatabaseName(String databaseName) {
+        this.databaseName = databaseName;
+    }
+    
+    public void setCharset(String charset) {
+        this.charset = charset;
+    }
+    
+    public void setCollation(String collation) {
+        this.collation = collation;
+    }
+    
+    public void setSnapshotTime(LocalDateTime snapshotTime) {
+        this.snapshotTime = snapshotTime;
+    }
+    
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+}

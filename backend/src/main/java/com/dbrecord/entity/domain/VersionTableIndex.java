@@ -69,4 +69,65 @@ public class VersionTableIndex implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    // 手动添加getter方法以解决编译问题
+    public Boolean getIsPrimary() {
+        return isPrimary;
+    }
+    
+    public Boolean getIsUnique() {
+        return isUnique;
+    }
+    
+    public String getIndexName() {
+        return indexName;
+    }
+    
+    public String getColumnNames() {
+        return columnNames;
+    }
+    
+    public String getIndexType() {
+        return indexType;
+    }
+    
+    public String getSubPart() {
+        return subPart;
+    }
+    
+    public String getIndexComment() {
+        return indexComment;
+    }
+    
+    public void setVersionTableId(Long versionTableId) {
+        this.versionTableId = versionTableId;
+    }
+    
+    public void setIndexName(String indexName) {
+        this.indexName = indexName;
+    }
+    
+    public void setIndexType(String indexType) {
+        this.indexType = indexType;
+    }
+    
+    public void setIsUnique(Boolean isUnique) {
+        this.isUnique = isUnique;
+    }
+    
+    public void setIsPrimary(Boolean isPrimary) {
+        this.isPrimary = isPrimary;
+    }
+    
+    public void setColumnNames(String columnNames) {
+        this.columnNames = columnNames;
+    }
+    
+    public void setSubPart(String subPart) {
+        this.subPart = subPart;
+    }
+    
+    public void setIndexComment(String indexComment) {
+        this.indexComment = indexComment;
+    }
+}

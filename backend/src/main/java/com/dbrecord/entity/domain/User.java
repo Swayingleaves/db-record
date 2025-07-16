@@ -78,4 +78,39 @@ public class User implements Serializable, UserDetails {
     public boolean isEnabled() {
         return status != null && status == 1;
     }
+    
+    // 手动添加getter方法以解决编译问题
+    public Long getId() {
+        return id;
+    }
+    
+    public void setUsername(String username) {
+        this.username = username;
+    }
+    
+    public void setPassword(String password) {
+        this.password = password;
+    }
+    
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+    
+    public void setRole(String role) {
+        this.role = role;
+    }
+    
+    public String getRole() {
+        return role;
+    }
+    
+    @Override
+    public String getUsername() {
+        return username;
+    }
+    
+    @Override
+    public String getPassword() {
+        return password;
+    }
 }

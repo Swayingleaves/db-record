@@ -180,29 +180,7 @@
       </div>
     </div>
 
-    <!-- 版本对比弹窗 -->
-    <div v-if="showCompare" class="project-dialog-mask">
-      <div class="project-dialog">
-        <h4>版本对比</h4>
-        <div class="form-row">
-          <label>选择对比版本</label>
-          <select v-model="compareTargetId">
-            <option value="">请选择版本</option>
-            <option v-for="ver in versions.filter(v => v.id !== compareBaseVersion?.id)" :key="ver.id" :value="ver.id">{{ ver.versionName }}</option>
-          </select>
-        </div>
-        <div class="compare-result" v-if="compareResult">
-          <p>对比结果：</p>
-          <pre style="background:#f8f8f8;padding:10px;border-radius:6px;">{{ compareResult }}</pre>
-        </div>
-        <div style="text-align:right;margin-top:18px;">
-          <button class="version-cancel-btn" @click="showCompare=false">关闭</button>
-          <button class="version-save-btn" @click="performCompare" :disabled="!compareTargetId || compareLoading">
-            {{ compareLoading ? '对比中...' : '开始对比' }}
-          </button>
-        </div>
-      </div>
-    </div>
+
 
     <!-- 绑定数据源弹窗 -->
     <div v-if="showBindDataSource" class="project-dialog-mask">
@@ -263,7 +241,7 @@ const error = ref('');
 const editFormLoading = ref(false);
 const versionFormLoading = ref(false);
 const deleteLoading = ref(false);
-const compareLoading = ref(false);
+
 const bindLoading = ref(false);
 
 // 项目编辑相关
@@ -277,11 +255,7 @@ const versionForm = ref<Partial<ProjectVersion>>({});
 const showDelete = ref(false);
 const delTarget = ref<ProjectVersion | null>(null);
 
-// 版本对比相关
-const showCompare = ref(false);
-const compareBaseVersion = ref<ProjectVersion | null>(null);
-const compareTargetId = ref<number | null>(null);
-const compareResult = ref('');
+
 
 // 数据源相关
 const showBindDataSource = ref(false);
@@ -446,25 +420,11 @@ async function deleteVersion() {
 
 // 版本对比相关
 function openCompare(ver: ProjectVersion) {
-  compareBaseVersion.value = ver;
-  compareTargetId.value = null;
-  compareResult.value = '';
-  showCompare.value = true;
+  // 跳转到版本对比页面，传递基础版本ID和项目ID
+  router.push(`/dashboard/project/${project.value?.id}/version/${ver.id}/compare`);
 }
 
-async function performCompare() {
-  if (!compareBaseVersion.value || !compareTargetId.value) return;
-  
-  try {
-    compareLoading.value = true;
-    const response = await request.get(`/api/project-version/compare/${compareBaseVersion.value.id}/${compareTargetId.value}`);
-    compareResult.value = JSON.stringify(response.data.data, null, 2);
-  } catch (err: any) {
-    showToast(err.message || '对比失败', 'error');
-  } finally {
-    compareLoading.value = false;
-  }
-}
+
 
 async function exportSql(ver: ProjectVersion) {
   try {

@@ -114,4 +114,137 @@ public class VersionTableColumn implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
-} 
+    
+    // 手动添加getter和setter方法以解决编译问题
+    public void setVersionTableId(Long versionTableId) {
+        this.versionTableId = versionTableId;
+    }
+    
+    public void setColumnName(String columnName) {
+        this.columnName = columnName;
+    }
+    
+    public void setOrdinalPosition(Integer ordinalPosition) {
+        this.ordinalPosition = ordinalPosition;
+    }
+    
+    public void setColumnDefault(String columnDefault) {
+        this.columnDefault = columnDefault;
+    }
+    
+    public void setIsNullable(String isNullable) {
+        this.isNullable = isNullable;
+    }
+    
+    public void setDataType(String dataType) {
+        this.dataType = dataType;
+    }
+    
+    public void setCharacterMaximumLength(Long characterMaximumLength) {
+        this.characterMaximumLength = characterMaximumLength;
+    }
+    
+    public void setColumnType(String columnType) {
+        this.columnType = columnType;
+    }
+    
+    public void setColumnKey(String columnKey) {
+        this.columnKey = columnKey;
+    }
+    
+    public void setExtra(String extra) {
+        this.extra = extra;
+    }
+    
+    public void setColumnComment(String columnComment) {
+        this.columnComment = columnComment;
+    }
+    
+    public void setCharacterOctetLength(Long characterOctetLength) {
+        this.characterOctetLength = characterOctetLength;
+    }
+    
+    public void setNumericPrecision(Integer numericPrecision) {
+        this.numericPrecision = numericPrecision;
+    }
+    
+    public void setNumericScale(Integer numericScale) {
+        this.numericScale = numericScale;
+    }
+    
+    public void setDatetimePrecision(Integer datetimePrecision) {
+        this.datetimePrecision = datetimePrecision;
+    }
+    
+    public void setCharacterSetName(String characterSetName) {
+        this.characterSetName = characterSetName;
+    }
+    
+    public void setCollationName(String collationName) {
+        this.collationName = collationName;
+    }
+    
+    public String getColumnName() {
+        return columnName;
+    }
+    
+    public String getColumnType() {
+        return columnType;
+    }
+    
+    public String getIsNullable() {
+        return isNullable;
+    }
+    
+    public String getColumnDefault() {
+        return columnDefault;
+    }
+    
+    public String getColumnComment() {
+        return columnComment;
+    }
+    
+    public Integer getOrdinalPosition() {
+        return ordinalPosition;
+    }
+    
+    public String getDataType() {
+        return dataType;
+    }
+    
+    public Long getCharacterMaximumLength() {
+        return characterMaximumLength;
+    }
+    
+    public Long getCharacterOctetLength() {
+        return characterOctetLength;
+    }
+    
+    public Integer getNumericPrecision() {
+        return numericPrecision;
+    }
+    
+    public Integer getNumericScale() {
+        return numericScale;
+    }
+    
+    public Integer getDatetimePrecision() {
+        return datetimePrecision;
+    }
+    
+    public String getCharacterSetName() {
+        return characterSetName;
+    }
+    
+    public String getCollationName() {
+        return collationName;
+    }
+    
+    public String getColumnKey() {
+        return columnKey;
+    }
+    
+    public String getExtra() {
+        return extra;
+    }
+}

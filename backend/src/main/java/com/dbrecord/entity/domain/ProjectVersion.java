@@ -59,4 +59,29 @@ public class ProjectVersion implements Serializable {
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
+    
+    // 手动添加getter方法以解决编译问题
+    public Long getUserId() {
+        return userId;
+    }
+    
+    public String getVersionName() {
+        return versionName;
+    }
+    
+    public Long getId() {
+        return id;
+    }
+    
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+    
+    public Long getProjectId() {
+        return projectId;
+    }
+    
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 }
