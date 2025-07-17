@@ -15,9 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 项目版本管理控制器
@@ -301,9 +299,15 @@ public class ProjectVersionController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tables = (List<Map<String, Object>>) completeStructure.get("tables");
         if (tables != null && !tables.isEmpty()) {
-            for (Map<String, Object> table : tables) {
-                sql.append(generateCreateTableSql(table, databaseType));
-                sql.append("\n");
+            if ("postgresql".equalsIgnoreCase(databaseType)) {
+                // PostgreSQL: 先创建schema，再创建表
+                generatePostgreSQLStructureSql(sql, tables, databaseInfo);
+            } else {
+                // MySQL等其他数据库: 直接创建表
+                for (Map<String, Object> table : tables) {
+                    sql.append(generateCreateTableSql(table, databaseType));
+                    sql.append("\n");
+                }
             }
         } else {
             sql.append("-- 该版本暂无表结构数据\n");
@@ -311,7 +315,50 @@ public class ProjectVersionController {
         
         return sql.toString();
     }
-    
+
+    /**
+     * 生成PostgreSQL结构SQL（按schema分组）
+     */
+    private void generatePostgreSQLStructureSql(StringBuilder sql, List<Map<String, Object>> tables, Map<String, Object> databaseInfo) {
+        // 按schema分组表
+        Map<String, List<Map<String, Object>>> schemaGroups = new HashMap<>();
+        Set<String> schemas = new HashSet<>();
+
+        for (Map<String, Object> table : tables) {
+            String schemaName = (String) table.get("schemaName");
+            if (schemaName == null || schemaName.isEmpty()) {
+                schemaName = "public";
+            }
+            schemas.add(schemaName);
+
+            schemaGroups.computeIfAbsent(schemaName, k -> new ArrayList<>()).add(table);
+        }
+
+        // 生成CREATE SCHEMA语句
+        sql.append("-- 创建Schema\n");
+        for (String schemaName : schemas) {
+            if (!"public".equals(schemaName)) {
+                sql.append("CREATE SCHEMA IF NOT EXISTS \"").append(schemaName).append("\";\n");
+            }
+        }
+        sql.append("\n");
+
+        // 按schema分组生成表结构
+        for (Map.Entry<String, List<Map<String, Object>>> entry : schemaGroups.entrySet()) {
+            String schemaName = entry.getKey();
+            List<Map<String, Object>> schemaTables = entry.getValue();
+
+            sql.append("-- Schema: ").append(schemaName).append(" (").append(schemaTables.size()).append("个表)\n");
+            sql.append("-- ").append("=".repeat(50)).append("\n\n");
+
+            for (Map<String, Object> table : schemaTables) {
+                sql.append(generateCreateTableSql(table, "postgresql"));
+                sql.append("\n");
+            }
+            sql.append("\n");
+        }
+    }
+
     /**
      * 将MySQL字段类型转换为PostgreSQL字段类型
      */
@@ -319,18 +366,30 @@ public class ProjectVersionController {
         if (mysqlType == null) {
             return "TEXT";
         }
-        
-        String type = mysqlType.toLowerCase();
-        
+
+        String type = mysqlType.toLowerCase().trim();
+
         // 处理AUTO_INCREMENT
         if (extra != null && extra.toLowerCase().contains("auto_increment")) {
-            if (type.contains("int")) {
-                if (type.contains("bigint")) {
-                    return "BIGSERIAL";
-                } else {
-                    return "SERIAL";
-                }
+            if (type.contains("bigint")) {
+                return "BIGSERIAL";
+            } else if (type.contains("int")) {
+                return "SERIAL";
             }
+        }
+
+        // 处理已经是PostgreSQL格式的类型（从PostgreSQL数据源捕获的）
+        if (type.startsWith("character varying")) {
+            return type.replace("character varying", "VARCHAR");
+        }
+        if (type.equals("character")) {
+            return "CHAR";
+        }
+        if (type.equals("timestamp without time zone")) {
+            return "TIMESTAMP";
+        }
+        if (type.equals("timestamp with time zone")) {
+            return "TIMESTAMPTZ";
         }
         
         // 字符串类型
@@ -420,27 +479,40 @@ public class ProjectVersionController {
      */
     private String generateCreateTableSql(Map<String, Object> table, String databaseType) {
         StringBuilder sql = new StringBuilder();
-        
+
         String tableName = (String) table.get("tableName");
+        String schemaName = (String) table.get("schemaName");
         String tableComment = (String) table.get("tableComment");
         String engine = (String) table.get("engine");
         String charset = (String) table.get("charset");
         String collation = (String) table.get("collation");
         Object autoIncrement = table.get("autoIncrement");
-        
-        sql.append("-- 表: ").append(tableName);
+
+        // 构建完整的表名（包含schema）
+        String fullTableName = tableName;
+        if ("postgresql".equalsIgnoreCase(databaseType) && schemaName != null && !schemaName.isEmpty()) {
+            fullTableName = schemaName + "." + tableName;
+        }
+
+        sql.append("-- 表: ").append(fullTableName);
         if (tableComment != null && !tableComment.isEmpty()) {
             sql.append(" (").append(tableComment).append(")");
         }
         sql.append("\n");
-        
+
         // 根据数据库类型生成不同的语法
         if ("postgresql".equalsIgnoreCase(databaseType)) {
-            sql.append("DROP TABLE IF EXISTS \"").append(tableName).append("\"\n");
-            sql.append("CREATE TABLE \"").append(tableName).append("\" (\n");
+            // PostgreSQL语法，使用schema.table格式
+            if (schemaName != null && !schemaName.isEmpty()) {
+                sql.append("DROP TABLE IF EXISTS \"").append(schemaName).append("\".\"").append(tableName).append("\" CASCADE;\n");
+                sql.append("CREATE TABLE \"").append(schemaName).append("\".\"").append(tableName).append("\" (\n");
+            } else {
+                sql.append("DROP TABLE IF EXISTS \"").append(tableName).append("\" CASCADE;\n");
+                sql.append("CREATE TABLE \"").append(tableName).append("\" (\n");
+            }
         } else {
             // MySQL语法
-            sql.append("DROP TABLE IF EXISTS `").append(tableName).append("`\n");
+            sql.append("DROP TABLE IF EXISTS `").append(tableName).append("`;\n");
             sql.append("CREATE TABLE `").append(tableName).append("` (\n");
         }
         
@@ -539,6 +611,10 @@ public class ProjectVersionController {
                 sql.append("\nCOMMENT ON TABLE \"").append(tableName).append("\" IS '").append(tableComment.replace("'", "\\'")).append("';");
             }
             
+            // 构建完整表名（用于注释和索引）
+            String quotedTableName = schemaName != null && !schemaName.isEmpty() ?
+                "\"" + schemaName + "\".\"" + tableName + "\"" : "\"" + tableName + "\"";
+
             // PostgreSQL字段注释
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> columnsForComment = (List<Map<String, Object>>) table.get("columns");
@@ -546,23 +622,40 @@ public class ProjectVersionController {
                 for (Map<String, Object> column : columnsForComment) {
                     String columnComment = (String) column.get("columnComment");
                     if (columnComment != null && !columnComment.isEmpty()) {
-                        sql.append("\nCOMMENT ON COLUMN \"").append(tableName).append("\".\"").append(column.get("columnName")).append("\" IS '").append(columnComment.replace("'", "\\'")).append("';");
+                        sql.append("\nCOMMENT ON COLUMN ").append(quotedTableName).append(".\"").append(column.get("columnName")).append("\" IS '").append(columnComment.replace("'", "\\'")).append("';");
                     }
                 }
             }
-            
-            // PostgreSQL普通索引
+
+            // PostgreSQL索引
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> indexesForCreate = (List<Map<String, Object>>) table.get("indexes");
             if (indexesForCreate != null) {
                 for (Map<String, Object> index : indexesForCreate) {
-                    Boolean isPrimary = (Boolean) index.get("isPrimary");
-                    Boolean isUnique = (Boolean) index.get("isUnique");
+                    Object isPrimaryObj = index.get("isPrimary");
+                    Object isUniqueObj = index.get("isUnique");
+                    Boolean isPrimary = isPrimaryObj instanceof Boolean ? (Boolean) isPrimaryObj :
+                        (isPrimaryObj instanceof Number ? ((Number) isPrimaryObj).intValue() != 0 : false);
+                    Boolean isUnique = isUniqueObj instanceof Boolean ? (Boolean) isUniqueObj :
+                        (isUniqueObj instanceof Number ? ((Number) isUniqueObj).intValue() != 0 : false);
                     String indexName = (String) index.get("indexName");
                     String columnNames = (String) index.get("columnNames");
-                    
-                    if (!Boolean.TRUE.equals(isPrimary) && !Boolean.TRUE.equals(isUnique)) {
-                        sql.append("\nCREATE INDEX \"").append(indexName).append("\" ON \"").append(tableName).append("\" (").append(columnNames).append(");");
+                    String indexComment = (String) index.get("indexComment");
+
+                    // 跳过主键索引（已在表定义中处理）
+                    if (Boolean.TRUE.equals(isPrimary)) {
+                        continue;
+                    }
+
+                    if (Boolean.TRUE.equals(isUnique)) {
+                        sql.append("\nCREATE UNIQUE INDEX \"").append(indexName).append("\" ON ").append(quotedTableName).append(" (").append(columnNames).append(");");
+                    } else {
+                        sql.append("\nCREATE INDEX \"").append(indexName).append("\" ON ").append(quotedTableName).append(" (").append(columnNames).append(");");
+                    }
+
+                    // 添加索引注释
+                    if (indexComment != null && !indexComment.isEmpty()) {
+                        sql.append("\nCOMMENT ON INDEX \"").append(indexName).append("\" IS '").append(indexComment.replace("'", "\\'")).append("';");
                     }
                 }
             }

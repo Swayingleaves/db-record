@@ -65,26 +65,62 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
         // 解析表名，支持schema.table格式
         String schemaName = "public";
         String actualTableName = tableName;
-        
+
         if (tableName.contains(".")) {
             String[] parts = tableName.split("\\.", 2);
             schemaName = parts[0];
             actualTableName = parts[1];
         }
-        
-        String sql = "SELECT *, " +
+
+        String sql = "SELECT " +
+                     "c.column_name, " +
+                     "c.ordinal_position, " +
+                     "c.column_default, " +
+                     "c.is_nullable, " +
+                     "c.data_type, " +
+                     "c.character_maximum_length, " +
+                     "c.character_octet_length, " +
+                     "c.numeric_precision, " +
+                     "c.numeric_scale, " +
+                     "c.datetime_precision, " +
+                     "c.character_set_name, " +
+                     "c.collation_name, " +
                      "CASE " +
-                     "  WHEN data_type = 'character varying' THEN 'varchar(' || character_maximum_length || ')' " +
-                     "  WHEN data_type = 'character' THEN 'char(' || character_maximum_length || ')' " +
-                     "  WHEN data_type = 'numeric' AND numeric_precision IS NOT NULL AND numeric_scale IS NOT NULL THEN 'numeric(' || numeric_precision || ',' || numeric_scale || ')' " +
-                     "  WHEN data_type = 'numeric' AND numeric_precision IS NOT NULL THEN 'numeric(' || numeric_precision || ')' " +
-                     "  WHEN data_type = 'timestamp without time zone' THEN 'timestamp' " +
-                     "  WHEN data_type = 'timestamp with time zone' THEN 'timestamptz' " +
-                     "  WHEN data_type = 'time without time zone' THEN 'time' " +
-                     "  WHEN data_type = 'time with time zone' THEN 'timetz' " +
-                     "  ELSE data_type " +
-                     "END AS column_type " +
-                     "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
+                     "  WHEN c.data_type = 'character varying' THEN 'varchar(' || c.character_maximum_length || ')' " +
+                     "  WHEN c.data_type = 'character' THEN 'char(' || c.character_maximum_length || ')' " +
+                     "  WHEN c.data_type = 'numeric' AND c.numeric_precision IS NOT NULL AND c.numeric_scale IS NOT NULL THEN 'numeric(' || c.numeric_precision || ',' || c.numeric_scale || ')' " +
+                     "  WHEN c.data_type = 'numeric' AND c.numeric_precision IS NOT NULL THEN 'numeric(' || c.numeric_precision || ')' " +
+                     "  WHEN c.data_type = 'timestamp without time zone' THEN 'timestamp' " +
+                     "  WHEN c.data_type = 'timestamp with time zone' THEN 'timestamptz' " +
+                     "  WHEN c.data_type = 'time without time zone' THEN 'time' " +
+                     "  WHEN c.data_type = 'time with time zone' THEN 'timetz' " +
+                     "  ELSE c.data_type " +
+                     "END AS column_type, " +
+                     "CASE " +
+                     "  WHEN tc.constraint_type = 'PRIMARY KEY' THEN 'PRI' " +
+                     "  WHEN tc.constraint_type = 'UNIQUE' THEN 'UNI' " +
+                     "  WHEN tc.constraint_type = 'FOREIGN KEY' THEN 'MUL' " +
+                     "  ELSE '' " +
+                     "END AS column_key, " +
+                     "CASE " +
+                     "  WHEN c.column_default LIKE 'nextval%' THEN 'auto_increment' " +
+                     "  ELSE '' " +
+                     "END AS extra, " +
+                     "COALESCE(pgd.description, '') AS column_comment " +
+                     "FROM information_schema.columns c " +
+                     "LEFT JOIN information_schema.key_column_usage kcu ON " +
+                     "  c.table_schema = kcu.table_schema AND " +
+                     "  c.table_name = kcu.table_name AND " +
+                     "  c.column_name = kcu.column_name " +
+                     "LEFT JOIN information_schema.table_constraints tc ON " +
+                     "  kcu.constraint_name = tc.constraint_name AND " +
+                     "  kcu.table_schema = tc.table_schema " +
+                     "LEFT JOIN pg_class pgc ON pgc.relname = c.table_name " +
+                     "LEFT JOIN pg_namespace pgn ON pgn.oid = pgc.relnamespace AND pgn.nspname = c.table_schema " +
+                     "LEFT JOIN pg_attribute pga ON pga.attrelid = pgc.oid AND pga.attname = c.column_name " +
+                     "LEFT JOIN pg_description pgd ON pgd.objoid = pgc.oid AND pgd.objsubid = pga.attnum " +
+                     "WHERE c.table_schema = ? AND c.table_name = ? " +
+                     "ORDER BY c.ordinal_position";
         return executeQuery(datasource, sql, schemaName, actualTableName);
     }
     
@@ -93,22 +129,21 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
         // 解析表名，支持schema.table格式
         String schemaName = "public";
         String actualTableName = tableName;
-        
+
         if (tableName.contains(".")) {
             String[] parts = tableName.split("\\.", 2);
             schemaName = parts[0];
             actualTableName = parts[1];
         }
-        
+
         String sql = "SELECT " +
-                     "i.relname AS INDEX_NAME, " +
-                     "t.relname AS TABLE_NAME, " +
-                     "a.attname AS COLUMN_NAME, " +
-                     "CASE WHEN ix.indisunique THEN 0 ELSE 1 END AS NON_UNIQUE, " +
-                     "a.attnum AS SEQ_IN_INDEX, " +
-                     "am.amname AS INDEX_TYPE, " +
-                     "obj_description(i.oid, 'pg_class') AS INDEX_COMMENT, " +
-                     "NULL AS SUB_PART " +
+                     "i.relname AS index_name, " +
+                     "t.relname AS table_name, " +
+                     "string_agg(a.attname, ',' ORDER BY array_position(ix.indkey, a.attnum)) AS column_names, " +
+                     "CASE WHEN ix.indisunique THEN 1 ELSE 0 END AS is_unique, " +
+                     "CASE WHEN ix.indisprimary THEN 1 ELSE 0 END AS is_primary, " +
+                     "am.amname AS index_type, " +
+                     "obj_description(i.oid, 'pg_class') AS index_comment " +
                      "FROM pg_class t " +
                      "JOIN pg_namespace n ON t.relnamespace = n.oid " +
                      "JOIN pg_index ix ON t.oid = ix.indrelid " +
@@ -116,8 +151,9 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
                      "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) " +
                      "JOIN pg_am am ON i.relam = am.oid " +
                      "WHERE t.relname = ? AND n.nspname = ? AND t.relkind = 'r' " +
-                     "ORDER BY i.relname, a.attnum";
-        
+                     "GROUP BY i.relname, t.relname, ix.indisunique, ix.indisprimary, am.amname, i.oid " +
+                     "ORDER BY i.relname";
+
         return executeQuery(datasource, sql, actualTableName, schemaName);
     }
 }

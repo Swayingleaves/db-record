@@ -158,7 +158,12 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 Long versionTableId = versionTableStructure.getId();
                 
                 // 保存表字段信息
-                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, tableName);
+                // 对于PostgreSQL，需要传递完整的schema.table格式
+                String fullTableName = tableName;
+                if (schemaName != null && !"public".equals(schemaName)) {
+                    fullTableName = schemaName + "." + tableName;
+                }
+                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, fullTableName);
                 for (Map<String, Object> columnInfo : columns) {
                     VersionTableColumn versionTableColumn = new VersionTableColumn();
                     versionTableColumn.setVersionTableId(versionTableId);
@@ -232,7 +237,8 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 }
                 
                 // 保存表索引信息
-                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, tableName);
+                // 对于PostgreSQL，需要传递完整的schema.table格式
+                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, fullTableName);
                 Map<String, List<Map<String, Object>>> indexGroups = groupIndexesByName(indexes);
                 
                 for (Map.Entry<String, List<Map<String, Object>>> entry : indexGroups.entrySet()) {
@@ -896,9 +902,27 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     @Override
     public Map<String, Object> getVersionCompleteStructure(Long projectVersionId) {
         Map<String, Object> result = new HashMap<>();
-        
+
         try {
-            // 1. 获取数据库结构信息
+            // 1. 获取项目版本信息
+            ProjectVersion projectVersion = projectVersionMapper.selectById(projectVersionId);
+            if (projectVersion == null) {
+                result.put("error", "项目版本不存在");
+                return result;
+            }
+
+            // 2. 获取项目信息
+            Project project = projectMapper.selectById(projectVersion.getProjectId());
+            String datasourceType = null;
+            if (project != null && project.getDatasourceId() != null) {
+                // 3. 获取数据源信息
+                Datasource datasource = datasourceMapper.selectById(project.getDatasourceId());
+                if (datasource != null) {
+                    datasourceType = datasource.getType();
+                }
+            }
+
+            // 4. 获取数据库结构信息
             VersionDatabaseSchema databaseSchema = getVersionDatabaseSchema(projectVersionId);
             if (databaseSchema != null) {
                 Map<String, Object> databaseInfo = new HashMap<>();
@@ -909,8 +933,11 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 databaseInfo.put("schemasInfo", databaseSchema.getSchemasInfo());
                 result.put("database", databaseInfo);
             }
-            
-            // 2. 获取表结构列表
+
+            // 5. 添加数据源类型信息
+            result.put("datasourceType", datasourceType);
+
+            // 6. 获取表结构列表
             List<VersionTableStructure> tableStructures = getVersionTableStructures(projectVersionId);
             List<Map<String, Object>> tables = new ArrayList<>();
             
@@ -931,7 +958,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 tableInfo.put("indexLength", tableStructure.getIndexLength());
                 tableInfo.put("autoIncrement", tableStructure.getAutoIncrement());
                 
-                // 3. 获取表的字段信息
+                // 7. 获取表的字段信息
                 QueryWrapper<VersionTableColumn> columnQueryWrapper = new QueryWrapper<>();
                 columnQueryWrapper.eq("version_table_id", tableStructure.getId());
                 columnQueryWrapper.orderByAsc("ordinal_position");
@@ -960,7 +987,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 }
                 tableInfo.put("columns", columnList);
                 
-                // 4. 获取表的索引信息
+                // 8. 获取表的索引信息
                 QueryWrapper<VersionTableIndex> indexQueryWrapper = new QueryWrapper<>();
                 indexQueryWrapper.eq("version_table_id", tableStructure.getId());
                 indexQueryWrapper.orderByAsc("index_name");

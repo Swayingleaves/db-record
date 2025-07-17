@@ -91,8 +91,20 @@
         <!-- 表结构信息 -->
         <div v-if="tables.length > 0" class="tables-section">
           <h4>表结构 ({{ tables.length }}个表)</h4>
-          <div class="tables-container">
-            <div v-for="table in tables" :key="table.id" class="table-card">
+
+          <!-- PostgreSQL 分层显示 -->
+          <div v-if="isPostgreSQL && schemaGroups" class="schemas-tables-container">
+            <div v-for="(schemaTables, schemaName) in schemaGroups" :key="schemaName" class="schema-group">
+              <div class="schema-header" @click="toggleSchema(schemaName)">
+                <h5>
+                  <span class="toggle-icon" :class="{ 'expanded': isSchemaExpanded(schemaName) }">▼</span>
+                  <span class="schema-icon">📁</span>
+                  Schema: {{ schemaName }} ({{ schemaTables.length }}个表)
+                </h5>
+              </div>
+
+              <div v-if="isSchemaExpanded(schemaName)" class="schema-tables">
+                <div v-for="table in schemaTables" :key="table.id" class="table-card">
               <div class="table-header" @click="toggleTable(table.id)">
                 <h5>
                   <span v-if="table.schemaName && table.schemaName !== 'public'" class="schema-prefix">{{ table.schemaName }}.</span>{{ table.tableName }}
@@ -200,6 +212,121 @@
                   </table>
                 </div>
               </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 非PostgreSQL 平铺显示 -->
+          <div v-else class="tables-container">
+            <div v-for="table in tables" :key="table.id" class="table-card">
+              <div class="table-header" @click="toggleTable(table.id)">
+                <h5>
+                  <span v-if="table.schemaName && table.schemaName !== 'public'" class="schema-prefix">{{ table.schemaName }}.</span>{{ table.tableName }}
+                </h5>
+                <span class="table-comment" v-if="table.tableComment">{{ table.tableComment }}</span>
+                <span class="toggle-icon" :class="{ 'expanded': expandedTables.includes(table.id) }">▼</span>
+              </div>
+
+              <div v-if="expandedTables.includes(table.id)" class="table-content">
+                <!-- 表基本信息 -->
+                <div class="table-info">
+                  <div class="info-row" v-if="table.schemaName">
+                    <span class="label">Schema：</span>
+                    <span>{{ table.schemaName }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">表类型：</span>
+                    <span>{{ table.tableType }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">存储引擎：</span>
+                    <span>{{ table.engine }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">字符集：</span>
+                    <span>{{ table.charset }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="label">排序规则：</span>
+                    <span>{{ table.collation }}</span>
+                  </div>
+                </div>
+
+                <!-- 字段信息 -->
+                <div class="columns-section">
+                  <h6>字段信息 ({{ table.columns?.length || 0 }} 个字段)</h6>
+                  <table class="columns-table">
+                    <thead>
+                      <tr>
+                        <th>字段名</th>
+                        <th>数据类型</th>
+                        <th>长度</th>
+                        <th>允许空值</th>
+                        <th>键类型</th>
+                        <th>默认值</th>
+                        <th>额外信息</th>
+                        <th>注释</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="column in table.columns" :key="column.id">
+                        <td class="column-name">{{ column.columnName }}</td>
+                        <td>{{ column.columnType }}</td>
+                        <td>{{ column.characterMaximumLength || '-' }}</td>
+                        <td>
+                          <span class="nullable" :class="column.isNullable === 'YES' ? 'yes' : 'no'">
+                            {{ column.isNullable === 'YES' ? '是' : '否' }}
+                          </span>
+                        </td>
+                        <td>
+                          <span v-if="column.columnKey" class="key-type" :class="column.columnKey.toLowerCase()">
+                            {{ getKeyTypeText(column.columnKey) }}
+                          </span>
+                        </td>
+                        <td>{{ column.columnDefault || '-' }}</td>
+                        <td>{{ column.extra || '-' }}</td>
+                        <td>{{ column.columnComment || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- 索引信息 -->
+                <div class="indexes-section">
+                  <h6>索引信息 ({{ table.indexes?.length || 0 }} 个索引)</h6>
+                  <table class="indexes-table">
+                    <thead>
+                      <tr>
+                        <th>索引名</th>
+                        <th>索引类型</th>
+                        <th>唯一性</th>
+                        <th>主键</th>
+                        <th>字段</th>
+                        <th>注释</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="index in table.indexes" :key="index.id">
+                        <td class="index-name">{{ index.indexName }}</td>
+                        <td>{{ index.indexType }}</td>
+                        <td>
+                          <span class="unique" :class="index.isUnique ? 'yes' : 'no'">
+                            {{ index.isUnique ? '是' : '否' }}
+                          </span>
+                        </td>
+                        <td>
+                          <span class="primary" :class="index.isPrimary ? 'yes' : 'no'">
+                            {{ index.isPrimary ? '是' : '否' }}
+                          </span>
+                        </td>
+                        <td>{{ index.columnNames }}</td>
+                        <td>{{ index.indexComment || '-' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -219,7 +346,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import request from '../utils/request';
 import type { ProjectVersion } from '../types/api';
@@ -284,6 +411,8 @@ const projectId = ref<number>(0);
 const projectName = ref<string>('');
 const expandedTables = ref<number[]>([]);
 const schemasInfo = ref<any[]>([]);
+const datasourceType = ref<string | null>(null);
+const expandedSchemas = ref<string[]>([]);
 
 // 加载状态
 const loading = ref(false);
@@ -328,10 +457,11 @@ async function loadVersionDetail() {
     // 获取版本完整结构信息
     const structureResponse = await request.get(`/api/project-version/structure/${versionId}`);
     const structureData = structureResponse.data.data;
-    
+
     databaseSchema.value = structureData.database;
     tables.value = structureData.tables || [];
-    
+    datasourceType.value = structureData.datasourceType || null;
+
     // 解析PostgreSQL的schema信息
     if (structureData.database?.schemasInfo) {
       try {
@@ -343,12 +473,62 @@ async function loadVersionDetail() {
     } else {
       schemasInfo.value = [];
     }
+
+    // 如果是PostgreSQL，初始化展开的schema（默认展开所有schema）
+    if (datasourceType.value === 'postgresql') {
+      const schemaNames = new Set<string>();
+      tables.value.forEach(table => {
+        if (table.schemaName) {
+          schemaNames.add(table.schemaName);
+        }
+      });
+      expandedSchemas.value = Array.from(schemaNames);
+    }
     
   } catch (err: any) {
     error.value = err.message || '加载版本详情失败';
   } finally {
     loading.value = false;
   }
+}
+
+// 计算属性：按schema分组的表数据
+const schemaGroups = computed(() => {
+  if (datasourceType.value !== 'postgresql') {
+    return null; // 非PostgreSQL数据源不使用分组
+  }
+
+  const groups: { [schemaName: string]: TableStructure[] } = {};
+
+  tables.value.forEach(table => {
+    const schemaName = table.schemaName || 'public';
+    if (!groups[schemaName]) {
+      groups[schemaName] = [];
+    }
+    groups[schemaName].push(table);
+  });
+
+  return groups;
+});
+
+// 计算属性：是否为PostgreSQL数据源
+const isPostgreSQL = computed(() => {
+  return datasourceType.value === 'postgresql';
+});
+
+// 切换schema展开状态
+function toggleSchema(schemaName: string) {
+  const index = expandedSchemas.value.indexOf(schemaName);
+  if (index > -1) {
+    expandedSchemas.value.splice(index, 1);
+  } else {
+    expandedSchemas.value.push(schemaName);
+  }
+}
+
+// 判断schema是否展开
+function isSchemaExpanded(schemaName: string): boolean {
+  return expandedSchemas.value.includes(schemaName);
 }
 
 // 格式化日期
@@ -585,6 +765,79 @@ async function captureSchema() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 12px;
+}
+
+/* Schema分组样式 */
+.schemas-tables-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.schema-group {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.schema-header {
+  background: #f0f2f5;
+  padding: 16px 20px;
+  cursor: pointer;
+  border-bottom: 1px solid #e4e7ed;
+  transition: background 0.2s;
+}
+
+.schema-header:hover {
+  background: #e6e8eb;
+}
+
+.schema-header h5 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.schema-header .toggle-icon {
+  color: #606266;
+  font-size: 14px;
+}
+
+.schema-icon {
+  font-size: 16px;
+  margin-right: 4px;
+}
+
+.schema-tables {
+  padding: 16px;
+  background: #fafbfc;
+}
+
+.schema-tables .table-card {
+  margin-bottom: 16px;
+}
+
+.schema-tables .table-card:last-child {
+  margin-bottom: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .schema-header h5 {
+    font-size: 14px;
+  }
+
+  .schema-tables {
+    padding: 12px;
+  }
+
+  .schemas-tables-container {
+    gap: 16px;
+  }
 }
 
 /* 表结构部分 */
