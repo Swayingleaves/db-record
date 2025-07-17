@@ -101,20 +101,11 @@ public class Result<T> {
      * @param message 消息
      * @return Result
      */
-public static <T> Result<T> error(int code, String message) {
-    return new Result<>(code, message, false);
-}
+    public static <T> Result<T> error(int code, String message) {
+        return new Result<>(code, message, false);
+    }
 
-public static <T> Result<T> error(RegisterResponseVO responseVO) {
-    Result<T> r = new Result<>();
-    r.setCode(400); // 或者其他适当的错误码
-    r.setMsg(responseVO.getMessage());
-    r.setStatus(false);
-    r.setData((T) responseVO);
-    return r;
-}
-
-    /**
+   /**
      * 失败返回结果
      * @param message 消息
      * @return Result
