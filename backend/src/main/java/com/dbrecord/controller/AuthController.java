@@ -14,10 +14,14 @@ import java.util.HashMap;
 import java.util.Map;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.dbrecord.config.JwtUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/")
 public class AuthController {
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+
     @Autowired
     private AuthenticationManager authenticationManager;
     @Autowired
@@ -29,6 +33,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public Result<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
+        logger.info("Login request received for user: {}", loginRequest.get("username"));
         String username = loginRequest.get("username");
         String password = loginRequest.get("password");
         try {

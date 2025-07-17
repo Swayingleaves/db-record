@@ -11,6 +11,9 @@ interface ApiResult<T = any> {
 const instance = axios.create({
   baseURL: '/api', // 统一加上 /api 前缀
   timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // 请求拦截器
