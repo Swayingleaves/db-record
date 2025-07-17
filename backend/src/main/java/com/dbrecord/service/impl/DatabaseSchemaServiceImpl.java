@@ -2,7 +2,10 @@ package com.dbrecord.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.dbrecord.entity.domain.*;
+import com.dbrecord.enums.DatabaseType;
 import com.dbrecord.mapper.*;
+import com.dbrecord.service.DatabaseSchemaExtractor;
+import com.dbrecord.service.DatabaseSchemaExtractorFactory;
 import com.dbrecord.service.DatabaseSchemaService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.*;
+
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -38,82 +41,209 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     @Autowired
     private VersionTableIndexMapper versionTableIndexMapper;
     
+    @Autowired
+    private DatabaseSchemaExtractorFactory extractorFactory;
+    
+    @Autowired
+    private ProjectVersionMapper projectVersionMapper;
+    
+    @Autowired
+    private ProjectMapper projectMapper;
+    
+    @Autowired
+    private DatasourceMapper datasourceMapper;
+    
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     @Override
     @Transactional
     public boolean captureAndSaveDatabaseSchema(Long projectVersionId, Datasource datasource, Long userId) {
         try {
-            // 1. 获取数据库基本信息
-            Map<String, Object> databaseInfo = getDatabaseInfo(datasource);
+            // 1. 检查数据库类型是否支持
+            if (!extractorFactory.isSupported(datasource.getType())) {
+                log.error("不支持的数据库类型: {}", datasource.getType());
+                return false;
+            }
             
-            // 2. 保存数据库结构信息
+            // 2. 获取对应的数据库结构提取器
+            DatabaseSchemaExtractor extractor = extractorFactory.getExtractor(datasource.getType());
+            
+            // 3. 删除该版本已存在的数据库结构信息（如果有的话）
+            deleteExistingVersionData(projectVersionId);
+            
+            // 4. 获取数据库基本信息
+            Map<String, Object> databaseInfo = extractor.getDatabaseInfo(datasource);
+            
+            // 5. 保存数据库结构信息
             VersionDatabaseSchema versionDatabaseSchema = new VersionDatabaseSchema();
             versionDatabaseSchema.setProjectVersionId(projectVersionId);
             versionDatabaseSchema.setDatabaseName(datasource.getDatabaseName());
             versionDatabaseSchema.setCharset((String) databaseInfo.get("charset"));
             versionDatabaseSchema.setCollation((String) databaseInfo.get("collation"));
+            
+            // 处理PostgreSQL的schema信息
+            if (databaseInfo.containsKey("schemas_info")) {
+                try {
+                    String schemasInfoJson = objectMapper.writeValueAsString(databaseInfo.get("schemas_info"));
+                    versionDatabaseSchema.setSchemasInfo(schemasInfoJson);
+                } catch (JsonProcessingException e) {
+                    log.error("序列化schema信息失败: {}", e.getMessage());
+                }
+            }
+            
             versionDatabaseSchema.setSnapshotTime(LocalDateTime.now());
             versionDatabaseSchema.setUserId(userId);
             versionDatabaseSchemaMapper.insert(versionDatabaseSchema);
             
-            // 3. 获取所有表的结构信息
-            List<Map<String, Object>> tablesStructure = getTablesStructure(datasource);
+            // 6. 获取所有表的结构信息
+            List<Map<String, Object>> tablesStructure = extractor.getTablesStructure(datasource);
             
             // 4. 保存每个表的结构信息
             for (Map<String, Object> tableInfo : tablesStructure) {
+                // PostgreSQL返回小写字段名，MySQL返回大写字段名
                 String tableName = (String) tableInfo.get("TABLE_NAME");
+                if (tableName == null) {
+                    tableName = (String) tableInfo.get("table_name");
+                }
+                
+                // 跳过表名为空的记录
+                if (tableName == null || tableName.trim().isEmpty()) {
+                    log.warn("跳过表名为空的表记录: {}", tableInfo);
+                    continue;
+                }
                 
                 // 保存表结构信息
                 VersionTableStructure versionTableStructure = new VersionTableStructure();
                 versionTableStructure.setProjectVersionId(projectVersionId);
                 versionTableStructure.setTableName(tableName);
-                versionTableStructure.setTableComment((String) tableInfo.get("TABLE_COMMENT"));
-                versionTableStructure.setTableType((String) tableInfo.get("TABLE_TYPE"));
-                versionTableStructure.setEngine((String) tableInfo.get("ENGINE"));
+                
+                // 处理schema信息（PostgreSQL专用）
+                String schemaName = (String) tableInfo.get("SCHEMA_NAME");
+                if (schemaName == null) schemaName = (String) tableInfo.get("schema_name");
+                if (schemaName == null) schemaName = "public"; // 默认schema
+                versionTableStructure.setSchemaName(schemaName);
+                
+                // 处理字段名大小写差异
+                String tableComment = (String) tableInfo.get("TABLE_COMMENT");
+                if (tableComment == null) tableComment = (String) tableInfo.get("table_comment");
+                
+                String tableType = (String) tableInfo.get("TABLE_TYPE");
+                if (tableType == null) tableType = (String) tableInfo.get("table_type");
+                
+                String engine = (String) tableInfo.get("ENGINE");
+                if (engine == null) engine = (String) tableInfo.get("engine");
+                
+                Object tableRows = tableInfo.get("TABLE_ROWS");
+                if (tableRows == null) tableRows = tableInfo.get("table_rows");
+                
+                Object dataLength = tableInfo.get("DATA_LENGTH");
+                if (dataLength == null) dataLength = tableInfo.get("data_length");
+                
+                Object indexLength = tableInfo.get("INDEX_LENGTH");
+                if (indexLength == null) indexLength = tableInfo.get("index_length");
+                
+                versionTableStructure.setTableComment(tableComment);
+                versionTableStructure.setTableType(tableType);
+                versionTableStructure.setEngine(engine);
                 versionTableStructure.setCharset((String) tableInfo.get("TABLE_COLLATION"));
                 versionTableStructure.setCollation((String) tableInfo.get("TABLE_COLLATION"));
                 versionTableStructure.setRowFormat((String) tableInfo.get("ROW_FORMAT"));
-                versionTableStructure.setTableRows(getLongValue(tableInfo.get("TABLE_ROWS")));
+                versionTableStructure.setTableRows(getLongValue(tableRows));
                 versionTableStructure.setAvgRowLength(getLongValue(tableInfo.get("AVG_ROW_LENGTH")));
-                versionTableStructure.setDataLength(getLongValue(tableInfo.get("DATA_LENGTH")));
-                versionTableStructure.setIndexLength(getLongValue(tableInfo.get("INDEX_LENGTH")));
+                versionTableStructure.setDataLength(getLongValue(dataLength));
+                versionTableStructure.setIndexLength(getLongValue(indexLength));
                 versionTableStructure.setAutoIncrement(getLongValue(tableInfo.get("AUTO_INCREMENT")));
                 versionTableStructureMapper.insert(versionTableStructure);
                 
                 Long versionTableId = versionTableStructure.getId();
                 
                 // 保存表字段信息
-                List<Map<String, Object>> columns = getTableColumns(datasource, tableName);
+                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, tableName);
                 for (Map<String, Object> columnInfo : columns) {
                     VersionTableColumn versionTableColumn = new VersionTableColumn();
                     versionTableColumn.setVersionTableId(versionTableId);
-                    versionTableColumn.setColumnName((String) columnInfo.get("COLUMN_NAME"));
-                    versionTableColumn.setOrdinalPosition(getIntValue(columnInfo.get("ORDINAL_POSITION")));
-                    versionTableColumn.setColumnDefault((String) columnInfo.get("COLUMN_DEFAULT"));
-                    versionTableColumn.setIsNullable((String) columnInfo.get("IS_NULLABLE"));
-                    versionTableColumn.setDataType((String) columnInfo.get("DATA_TYPE"));
-                    versionTableColumn.setCharacterMaximumLength(getLongValue(columnInfo.get("CHARACTER_MAXIMUM_LENGTH")));
-                    versionTableColumn.setCharacterOctetLength(getLongValue(columnInfo.get("CHARACTER_OCTET_LENGTH")));
-                    versionTableColumn.setNumericPrecision(getIntValue(columnInfo.get("NUMERIC_PRECISION")));
-                    versionTableColumn.setNumericScale(getIntValue(columnInfo.get("NUMERIC_SCALE")));
-                    versionTableColumn.setDatetimePrecision(getIntValue(columnInfo.get("DATETIME_PRECISION")));
-                    versionTableColumn.setCharacterSetName((String) columnInfo.get("CHARACTER_SET_NAME"));
-                    versionTableColumn.setCollationName((String) columnInfo.get("COLLATION_NAME"));
-                    versionTableColumn.setColumnType((String) columnInfo.get("COLUMN_TYPE"));
-                    versionTableColumn.setColumnKey((String) columnInfo.get("COLUMN_KEY"));
-                    versionTableColumn.setExtra((String) columnInfo.get("EXTRA"));
-                    versionTableColumn.setColumnComment((String) columnInfo.get("COLUMN_COMMENT"));
+                    
+                    // 处理字段名大小写差异
+                    String columnName = (String) columnInfo.get("COLUMN_NAME");
+                    if (columnName == null) columnName = (String) columnInfo.get("column_name");
+                    
+                    Object ordinalPosition = columnInfo.get("ORDINAL_POSITION");
+                    if (ordinalPosition == null) ordinalPosition = columnInfo.get("ordinal_position");
+                    
+                    String columnDefault = (String) columnInfo.get("COLUMN_DEFAULT");
+                    if (columnDefault == null) columnDefault = (String) columnInfo.get("column_default");
+                    
+                    String isNullable = (String) columnInfo.get("IS_NULLABLE");
+                    if (isNullable == null) isNullable = (String) columnInfo.get("is_nullable");
+                    
+                    String dataType = (String) columnInfo.get("DATA_TYPE");
+                    if (dataType == null) dataType = (String) columnInfo.get("data_type");
+                    
+                    Object characterMaxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
+                    if (characterMaxLength == null) characterMaxLength = columnInfo.get("character_maximum_length");
+                    
+                    Object characterOctetLength = columnInfo.get("CHARACTER_OCTET_LENGTH");
+                    if (characterOctetLength == null) characterOctetLength = columnInfo.get("character_octet_length");
+                    
+                    Object numericPrecision = columnInfo.get("NUMERIC_PRECISION");
+                    if (numericPrecision == null) numericPrecision = columnInfo.get("numeric_precision");
+                    
+                    Object numericScale = columnInfo.get("NUMERIC_SCALE");
+                    if (numericScale == null) numericScale = columnInfo.get("numeric_scale");
+                    
+                    Object datetimePrecision = columnInfo.get("DATETIME_PRECISION");
+                    if (datetimePrecision == null) datetimePrecision = columnInfo.get("datetime_precision");
+                    
+                    String characterSetName = (String) columnInfo.get("CHARACTER_SET_NAME");
+                    if (characterSetName == null) characterSetName = (String) columnInfo.get("character_set_name");
+                    
+                    String collationName = (String) columnInfo.get("COLLATION_NAME");
+                    if (collationName == null) collationName = (String) columnInfo.get("collation_name");
+                    
+                    String columnType = (String) columnInfo.get("COLUMN_TYPE");
+                    if (columnType == null) columnType = (String) columnInfo.get("column_type");
+                    
+                    String columnKey = (String) columnInfo.get("COLUMN_KEY");
+                    if (columnKey == null) columnKey = (String) columnInfo.get("column_key");
+                    
+                    String extra = (String) columnInfo.get("EXTRA");
+                    if (extra == null) extra = (String) columnInfo.get("extra");
+                    
+                    String columnComment = (String) columnInfo.get("COLUMN_COMMENT");
+                    if (columnComment == null) columnComment = (String) columnInfo.get("column_comment");
+                    
+                    versionTableColumn.setColumnName(columnName);
+                    versionTableColumn.setOrdinalPosition(getIntValue(ordinalPosition));
+                    versionTableColumn.setColumnDefault(columnDefault);
+                    versionTableColumn.setIsNullable(isNullable);
+                    versionTableColumn.setDataType(dataType);
+                    versionTableColumn.setCharacterMaximumLength(getLongValue(characterMaxLength));
+                    versionTableColumn.setCharacterOctetLength(getLongValue(characterOctetLength));
+                    versionTableColumn.setNumericPrecision(getIntValue(numericPrecision));
+                    versionTableColumn.setNumericScale(getIntValue(numericScale));
+                    versionTableColumn.setDatetimePrecision(getIntValue(datetimePrecision));
+                    versionTableColumn.setCharacterSetName(characterSetName);
+                    versionTableColumn.setCollationName(collationName);
+                    versionTableColumn.setColumnType(columnType);
+                    versionTableColumn.setColumnKey(columnKey);
+                    versionTableColumn.setExtra(extra);
+                    versionTableColumn.setColumnComment(columnComment);
                     versionTableColumnMapper.insert(versionTableColumn);
                 }
                 
                 // 保存表索引信息
-                List<Map<String, Object>> indexes = getTableIndexes(datasource, tableName);
+                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, tableName);
                 Map<String, List<Map<String, Object>>> indexGroups = groupIndexesByName(indexes);
                 
                 for (Map.Entry<String, List<Map<String, Object>>> entry : indexGroups.entrySet()) {
                     String indexName = entry.getKey();
                     List<Map<String, Object>> indexColumns = entry.getValue();
+                    
+                    // 跳过空的索引名
+                    if (indexName == null || indexName.trim().isEmpty()) {
+                        log.warn("跳过空的索引名，表: {}", tableName);
+                        continue;
+                    }
                     
                     if (!indexColumns.isEmpty()) {
                         Map<String, Object> firstIndex = indexColumns.get(0);
@@ -121,8 +251,19 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                         VersionTableIndex versionTableIndex = new VersionTableIndex();
                         versionTableIndex.setVersionTableId(versionTableId);
                         versionTableIndex.setIndexName(indexName);
-                        versionTableIndex.setIndexType((String) firstIndex.get("INDEX_TYPE"));
-                        versionTableIndex.setIsUnique(!getBooleanValue(firstIndex.get("NON_UNIQUE")));
+                        
+                        // 处理字段名大小写差异
+                        String indexType = (String) firstIndex.get("INDEX_TYPE");
+                        if (indexType == null) indexType = (String) firstIndex.get("index_type");
+                        
+                        Object nonUnique = firstIndex.get("NON_UNIQUE");
+                        if (nonUnique == null) nonUnique = firstIndex.get("non_unique");
+                        
+                        String indexComment = (String) firstIndex.get("INDEX_COMMENT");
+                        if (indexComment == null) indexComment = (String) firstIndex.get("index_comment");
+                        
+                        versionTableIndex.setIndexType(indexType);
+                        versionTableIndex.setIsUnique(!getBooleanValue(nonUnique));
                         versionTableIndex.setIsPrimary("PRIMARY".equals(indexName));
                         
                         // 构建字段名数组
@@ -130,8 +271,12 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                         List<String> subParts = new ArrayList<>();
                         
                         for (Map<String, Object> indexColumn : indexColumns) {
-                            columnNames.add((String) indexColumn.get("COLUMN_NAME"));
+                            String columnName = (String) indexColumn.get("COLUMN_NAME");
+                            if (columnName == null) columnName = (String) indexColumn.get("column_name");
+                            columnNames.add(columnName);
+                            
                             Object subPart = indexColumn.get("SUB_PART");
+                            if (subPart == null) subPart = indexColumn.get("sub_part");
                             subParts.add(subPart != null ? subPart.toString() : null);
                         }
                         
@@ -144,7 +289,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                             versionTableIndex.setSubPart(subParts.toString());
                         }
                         
-                        versionTableIndex.setIndexComment((String) firstIndex.get("INDEX_COMMENT"));
+                        versionTableIndex.setIndexComment(indexComment);
                         versionTableIndexMapper.insert(versionTableIndex);
                     }
                 }
@@ -157,131 +302,47 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
     }
     
-    @Override
-    public Map<String, Object> getDatabaseInfo(Datasource datasource) {
-        Map<String, Object> result = new HashMap<>();
-        
-        try (Connection connection = getConnection(datasource)) {
-            // 获取数据库基本信息
-            String sql = "SELECT DEFAULT_CHARACTER_SET_NAME as charset, DEFAULT_COLLATION_NAME as collation " +
-                        "FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?";
-            
-            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                stmt.setString(1, datasource.getDatabaseName());
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        result.put("charset", rs.getString("charset"));
-                        result.put("collation", rs.getString("collation"));
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            log.error("获取数据库信息失败: {}", e.getMessage(), e);
-        }
-        
-        return result;
-    }
-    
-    @Override
-    public List<Map<String, Object>> getTablesStructure(Datasource datasource) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        
-        try (Connection connection = getConnection(datasource)) {
-            String sql = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?";
-            
-            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                stmt.setString(1, datasource.getDatabaseName());
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        Map<String, Object> tableInfo = new HashMap<>();
-                        ResultSetMetaData metaData = rs.getMetaData();
-                        
-                        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                            String columnName = metaData.getColumnName(i);
-                            Object value = rs.getObject(i);
-                            tableInfo.put(columnName, value);
-                        }
-                        
-                        result.add(tableInfo);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            log.error("获取表结构失败: {}", e.getMessage(), e);
-        }
-        
-        return result;
-    }
-    
-    @Override
-    public List<Map<String, Object>> getTableColumns(Datasource datasource, String tableName) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        
-        try (Connection connection = getConnection(datasource)) {
-            String sql = "SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
-            
-            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                stmt.setString(1, datasource.getDatabaseName());
-                stmt.setString(2, tableName);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        Map<String, Object> columnInfo = new HashMap<>();
-                        ResultSetMetaData metaData = rs.getMetaData();
-                        
-                        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                            String columnName = metaData.getColumnName(i);
-                            Object value = rs.getObject(i);
-                            columnInfo.put(columnName, value);
-                        }
-                        
-                        result.add(columnInfo);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            log.error("获取表字段失败: {}", e.getMessage(), e);
-        }
-        
-        return result;
-    }
-    
-    @Override
-    public List<Map<String, Object>> getTableIndexes(Datasource datasource, String tableName) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        
-        try (Connection connection = getConnection(datasource)) {
-            String sql = "SELECT * FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY INDEX_NAME, SEQ_IN_INDEX";
-            
-            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                stmt.setString(1, datasource.getDatabaseName());
-                stmt.setString(2, tableName);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        Map<String, Object> indexInfo = new HashMap<>();
-                        ResultSetMetaData metaData = rs.getMetaData();
-                        
-                        for (int i = 1; i <= metaData.getColumnCount(); i++) {
-                            String columnName = metaData.getColumnName(i);
-                            Object value = rs.getObject(i);
-                            indexInfo.put(columnName, value);
-                        }
-                        
-                        result.add(indexInfo);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            log.error("获取表索引失败: {}", e.getMessage(), e);
-        }
-        
-        return result;
-    }
+
     
     @Override
     public VersionDatabaseSchema getVersionDatabaseSchema(Long projectVersionId) {
         QueryWrapper<VersionDatabaseSchema> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("project_version_id", projectVersionId);
         return versionDatabaseSchemaMapper.selectOne(queryWrapper);
+    }
+    
+    /**
+     * 测试方法：直接调用数据库结构捕获
+     */
+    public boolean testCaptureSchema(Long projectVersionId) {
+        log.info("开始测试数据库结构捕获，版本ID: {}", projectVersionId);
+        try {
+            // 获取项目版本信息
+            ProjectVersion projectVersion = projectVersionMapper.selectById(projectVersionId);
+            if (projectVersion == null) {
+                log.error("项目版本不存在: {}", projectVersionId);
+                return false;
+            }
+            
+            // 获取项目信息
+            Project project = projectMapper.selectById(projectVersion.getProjectId());
+            if (project == null) {
+                log.error("项目不存在: {}", projectVersion.getProjectId());
+                return false;
+            }
+            
+            // 获取数据源信息
+            Datasource datasource = datasourceMapper.selectById(project.getDatasourceId());
+            if (datasource == null) {
+                log.error("数据源不存在: {}", project.getDatasourceId());
+                return false;
+            }
+            
+            return captureAndSaveDatabaseSchema(projectVersionId, datasource, projectVersion.getUserId());
+        } catch (Exception e) {
+            log.error("测试数据库结构捕获失败: {}", e.getMessage(), e);
+            return false;
+        }
     }
     
     @Override
@@ -845,6 +906,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 databaseInfo.put("charset", databaseSchema.getCharset());
                 databaseInfo.put("collation", databaseSchema.getCollation());
                 databaseInfo.put("snapshotTime", databaseSchema.getSnapshotTime());
+                databaseInfo.put("schemasInfo", databaseSchema.getSchemasInfo());
                 result.put("database", databaseInfo);
             }
             
@@ -856,6 +918,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 Map<String, Object> tableInfo = new HashMap<>();
                 tableInfo.put("id", tableStructure.getId());
                 tableInfo.put("tableName", tableStructure.getTableName());
+                tableInfo.put("schemaName", tableStructure.getSchemaName());
                 tableInfo.put("tableComment", tableStructure.getTableComment());
                 tableInfo.put("tableType", tableStructure.getTableType());
                 tableInfo.put("engine", tableStructure.getEngine());
@@ -931,14 +994,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         return result;
     }
     
-    /**
-     * 获取数据库连接
-     */
-    private Connection getConnection(Datasource datasource) throws SQLException {
-        String url = String.format("jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC&characterEncoding=utf8",
-                datasource.getHost(), datasource.getPort(), datasource.getDatabaseName());
-        return DriverManager.getConnection(url, datasource.getUsername(), datasource.getPassword());
-    }
+
     
     /**
      * 按索引名分组索引信息
@@ -996,5 +1052,45 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             return ((Number) value).intValue() != 0;
         }
         return Boolean.parseBoolean(value.toString());
+    }
+    
+    /**
+     * 删除指定版本的已存在数据
+     */
+    private void deleteExistingVersionData(Long projectVersionId) {
+        try {
+            // 1. 删除版本数据库结构信息
+            QueryWrapper<VersionDatabaseSchema> databaseQueryWrapper = new QueryWrapper<>();
+            databaseQueryWrapper.eq("project_version_id", projectVersionId);
+            versionDatabaseSchemaMapper.delete(databaseQueryWrapper);
+            
+            // 2. 获取该版本的所有表结构ID
+            QueryWrapper<VersionTableStructure> tableQueryWrapper = new QueryWrapper<>();
+            tableQueryWrapper.eq("project_version_id", projectVersionId);
+            List<VersionTableStructure> tableStructures = versionTableStructureMapper.selectList(tableQueryWrapper);
+            
+            if (!tableStructures.isEmpty()) {
+                List<Long> tableIds = tableStructures.stream()
+                    .map(VersionTableStructure::getId)
+                    .collect(java.util.stream.Collectors.toList());
+                
+                // 3. 删除表字段信息
+                QueryWrapper<VersionTableColumn> columnQueryWrapper = new QueryWrapper<>();
+                columnQueryWrapper.in("version_table_id", tableIds);
+                versionTableColumnMapper.delete(columnQueryWrapper);
+                
+                // 4. 删除表索引信息
+                QueryWrapper<VersionTableIndex> indexQueryWrapper = new QueryWrapper<>();
+                indexQueryWrapper.in("version_table_id", tableIds);
+                versionTableIndexMapper.delete(indexQueryWrapper);
+            }
+            
+            // 5. 删除表结构信息
+            versionTableStructureMapper.delete(tableQueryWrapper);
+            
+            log.info("已删除项目版本 {} 的已存在数据库结构信息", projectVersionId);
+        } catch (Exception e) {
+            log.warn("删除已存在版本数据时出现异常: {}", e.getMessage());
+        }
     }
 }

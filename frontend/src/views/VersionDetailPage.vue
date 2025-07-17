@@ -47,6 +47,9 @@
       <div class="database-structure-card">
         <div class="card-header">
           <h3>数据库结构</h3>
+          <button class="capture-btn" @click="captureSchema" :disabled="captureLoading">
+            {{ captureLoading ? '捕获中...' : '重新捕获结构' }}
+          </button>
         </div>
         
         <!-- 数据库基本信息 -->
@@ -70,6 +73,19 @@
               <span>{{ formatDate(databaseSchema.snapshotTime) }}</span>
             </div>
           </div>
+          
+          <!-- PostgreSQL Schema信息 -->
+          <div v-if="schemasInfo && schemasInfo.length > 0" class="schemas-section">
+            <h4>Schema信息 ({{ schemasInfo.length }}个Schema)</h4>
+            <div class="schemas-container">
+              <div v-for="schema in schemasInfo" :key="schema.schema_name" class="schema-card">
+                <div class="schema-info">
+                  <span class="schema-name">{{ schema.schema_name }}</span>
+                  <span class="schema-owner" v-if="schema.schema_owner">所有者: {{ schema.schema_owner }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 表结构信息 -->
@@ -78,7 +94,9 @@
           <div class="tables-container">
             <div v-for="table in tables" :key="table.id" class="table-card">
               <div class="table-header" @click="toggleTable(table.id)">
-                <h5>{{ table.tableName }}</h5>
+                <h5>
+                  <span v-if="table.schemaName && table.schemaName !== 'public'" class="schema-prefix">{{ table.schemaName }}.</span>{{ table.tableName }}
+                </h5>
                 <span class="table-comment" v-if="table.tableComment">{{ table.tableComment }}</span>
                 <span class="toggle-icon" :class="{ 'expanded': expandedTables.includes(table.id) }">▼</span>
               </div>
@@ -86,6 +104,10 @@
               <div v-if="expandedTables.includes(table.id)" class="table-content">
                 <!-- 表基本信息 -->
                 <div class="table-info">
+                  <div class="info-row" v-if="table.schemaName">
+                    <span class="label">Schema：</span>
+                    <span>{{ table.schemaName }}</span>
+                  </div>
                   <div class="info-row">
                     <span class="label">表类型：</span>
                     <span>{{ table.tableType }}</span>
@@ -209,6 +231,7 @@ interface DatabaseSchema {
   charset: string;
   collation: string;
   snapshotTime: string;
+  schemasInfo?: string;
 }
 
 interface TableColumn {
@@ -241,6 +264,7 @@ interface TableStructure {
   id: number;
   projectVersionId: number;
   tableName: string;
+  schemaName?: string;
   tableComment: string;
   tableType: string;
   engine: string;
@@ -259,10 +283,12 @@ const tables = ref<TableStructure[]>([]);
 const projectId = ref<number>(0);
 const projectName = ref<string>('');
 const expandedTables = ref<number[]>([]);
+const schemasInfo = ref<any[]>([]);
 
 // 加载状态
 const loading = ref(false);
 const error = ref('');
+const captureLoading = ref(false);
 
 // Toast消息
 const toastMessage = ref('');
@@ -306,6 +332,18 @@ async function loadVersionDetail() {
     databaseSchema.value = structureData.database;
     tables.value = structureData.tables || [];
     
+    // 解析PostgreSQL的schema信息
+    if (structureData.database?.schemasInfo) {
+      try {
+        schemasInfo.value = JSON.parse(structureData.database.schemasInfo);
+      } catch (e) {
+        console.warn('解析schema信息失败:', e);
+        schemasInfo.value = [];
+      }
+    } else {
+      schemasInfo.value = [];
+    }
+    
   } catch (err: any) {
     error.value = err.message || '加载版本详情失败';
   } finally {
@@ -345,6 +383,26 @@ function getKeyTypeText(keyType: string): string {
     case 'UNI': return '唯一';
     case 'MUL': return '索引';
     default: return keyType;
+  }
+}
+
+// 手动捕获数据库结构
+async function captureSchema() {
+  try {
+    captureLoading.value = true;
+    const versionId = parseInt(route.params.versionId as string);
+    
+    await request.post(`/api/project-version/capture-schema/${versionId}`);
+    
+    showToast('数据库结构捕获成功', 'success');
+    
+    // 重新加载版本详情
+    await loadVersionDetail();
+    
+  } catch (err: any) {
+    showToast(err.response?.data?.msg || '捕获数据库结构失败', 'error');
+  } finally {
+    captureLoading.value = false;
   }
 }
 </script>
@@ -458,6 +516,26 @@ function getKeyTypeText(keyType: string): string {
   font-size: 18px;
   font-weight: 600;
   color: #333;
+}
+
+.capture-btn {
+  background: #409eff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.capture-btn:hover:not(:disabled) {
+  background: #337ecc;
+}
+
+.capture-btn:disabled {
+  background: #c0c4cc;
+  cursor: not-allowed;
 }
 
 .version-info {
@@ -674,6 +752,54 @@ function getKeyTypeText(keyType: string): string {
 .key-type.mul {
   background: #f5f7fa;
   color: #909399;
+}
+
+/* Schema信息样式 */
+.schemas-section {
+  margin-top: 20px;
+}
+
+.schemas-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.schemas-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.schema-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px 16px;
+  min-width: 200px;
+}
+
+.schema-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schema-name {
+  font-weight: 600;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.schema-owner {
+  font-size: 12px;
+  color: #666;
+}
+
+.schema-prefix {
+  color: #909399;
+  font-weight: normal;
 }
 
 /* 无数据提示 */

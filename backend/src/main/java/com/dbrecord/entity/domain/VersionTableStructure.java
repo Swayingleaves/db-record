@@ -33,6 +33,11 @@ public class VersionTableStructure implements Serializable {
     private String tableName;
 
     /**
+     * Schema名称（PostgreSQL专用）
+     */
+    private String schemaName;
+
+    /**
      * 表注释
      */
     private String tableComment;
@@ -116,6 +121,10 @@ public class VersionTableStructure implements Serializable {
         return tableName;
     }
     
+    public String getSchemaName() {
+        return schemaName;
+    }
+    
     public String getTableType() {
         return tableType;
     }
@@ -148,12 +157,20 @@ public class VersionTableStructure implements Serializable {
         return autoIncrement;
     }
     
+    public Long getProjectVersionId() {
+        return projectVersionId;
+    }
+    
     public void setProjectVersionId(Long projectVersionId) {
         this.projectVersionId = projectVersionId;
     }
     
     public void setTableName(String tableName) {
         this.tableName = tableName;
+    }
+    
+    public void setSchemaName(String schemaName) {
+        this.schemaName = schemaName;
     }
     
     public void setTableComment(String tableComment) {

@@ -74,9 +74,21 @@ public class ProjectVersionController {
             queryWrapper.eq("version_name", projectVersion.getVersionName());
             queryWrapper.eq("status", 1);
             
-            ProjectVersion existingVersion = projectVersionService.getOne(queryWrapper);
-            if (existingVersion != null) {
+            ProjectVersion existingActiveVersion = projectVersionService.getOne(queryWrapper);
+            if (existingActiveVersion != null) {
                 return Result.error(400, "版本名称已存在");
+            }
+            
+            // 检查是否存在同名的软删除版本，如果存在则删除
+            QueryWrapper<ProjectVersion> deletedQueryWrapper = new QueryWrapper<>();
+            deletedQueryWrapper.eq("project_id", projectVersion.getProjectId());
+            deletedQueryWrapper.eq("version_name", projectVersion.getVersionName());
+            deletedQueryWrapper.eq("status", 0);
+            
+            ProjectVersion deletedVersion = projectVersionService.getOne(deletedQueryWrapper);
+            if (deletedVersion != null) {
+                // 硬删除软删除的版本记录
+                projectVersionService.removeById(deletedVersion.getId());
             }
             
             // 获取项目信息
@@ -228,6 +240,21 @@ public class ProjectVersionController {
                 return Result.error(403, "版本不存在或无权限访问");
             }
             
+            // 获取项目信息以确定数据源类型
+            Project project = projectService.getById(version.getProjectId());
+            if (project == null) {
+                return Result.error("项目不存在");
+            }
+            
+            // 获取数据源类型
+            String databaseType = "mysql"; // 默认为MySQL
+            if (project.getDatasourceId() != null) {
+                Datasource datasource = datasourceService.getById(project.getDatasourceId());
+                if (datasource != null) {
+                    databaseType = datasource.getType();
+                }
+            }
+            
             // 获取版本的完整数据库结构
             Map<String, Object> completeStructure = databaseSchemaService.getVersionCompleteStructure(id);
             
@@ -235,8 +262,8 @@ public class ProjectVersionController {
                 return Result.error("获取数据库结构失败: " + completeStructure.get("error"));
             }
             
-            // 生成SQL脚本
-            String sql = generateCompleteStructureSql(id, version.getVersionName(), completeStructure);
+            // 根据数据库类型生成SQL脚本
+            String sql = generateCompleteStructureSql(id, version.getVersionName(), completeStructure, databaseType);
             
             Map<String, Object> result = new HashMap<>();
             result.put("version", version.getVersionName());
@@ -251,7 +278,7 @@ public class ProjectVersionController {
     /**
      * 生成完整的数据库结构SQL
      */
-    private String generateCompleteStructureSql(Long versionId, String versionName, Map<String, Object> completeStructure) {
+    private String generateCompleteStructureSql(Long versionId, String versionName, Map<String, Object> completeStructure, String databaseType) {
         StringBuilder sql = new StringBuilder();
         
         // 添加头部注释
@@ -275,7 +302,7 @@ public class ProjectVersionController {
         List<Map<String, Object>> tables = (List<Map<String, Object>>) completeStructure.get("tables");
         if (tables != null && !tables.isEmpty()) {
             for (Map<String, Object> table : tables) {
-                sql.append(generateCreateTableSql(table));
+                sql.append(generateCreateTableSql(table, databaseType));
                 sql.append("\n");
             }
         } else {
@@ -286,9 +313,112 @@ public class ProjectVersionController {
     }
     
     /**
+     * 将MySQL字段类型转换为PostgreSQL字段类型
+     */
+    private String convertColumnTypeForPostgreSQL(String mysqlType, String extra) {
+        if (mysqlType == null) {
+            return "TEXT";
+        }
+        
+        String type = mysqlType.toLowerCase();
+        
+        // 处理AUTO_INCREMENT
+        if (extra != null && extra.toLowerCase().contains("auto_increment")) {
+            if (type.contains("int")) {
+                if (type.contains("bigint")) {
+                    return "BIGSERIAL";
+                } else {
+                    return "SERIAL";
+                }
+            }
+        }
+        
+        // 字符串类型
+        if (type.startsWith("varchar")) {
+            return type.replace("varchar", "VARCHAR");
+        }
+        if (type.startsWith("char")) {
+            return type.replace("char", "CHAR");
+        }
+        if (type.equals("text") || type.equals("longtext") || type.equals("mediumtext")) {
+            return "TEXT";
+        }
+        if (type.equals("tinytext")) {
+            return "TEXT";
+        }
+        
+        // 数值类型
+        if (type.equals("tinyint(1)") || type.equals("boolean")) {
+            return "BOOLEAN";
+        }
+        if (type.startsWith("tinyint")) {
+            return "SMALLINT";
+        }
+        if (type.startsWith("smallint")) {
+            return "SMALLINT";
+        }
+        if (type.startsWith("mediumint") || type.startsWith("int")) {
+            return "INTEGER";
+        }
+        if (type.startsWith("bigint")) {
+            return "BIGINT";
+        }
+        if (type.startsWith("decimal") || type.startsWith("numeric")) {
+            return type.toUpperCase();
+        }
+        if (type.startsWith("float")) {
+            return "REAL";
+        }
+        if (type.startsWith("double")) {
+            return "DOUBLE PRECISION";
+        }
+        
+        // 日期时间类型
+        if (type.equals("datetime")) {
+            return "TIMESTAMP";
+        }
+        if (type.equals("date")) {
+            return "DATE";
+        }
+        if (type.equals("time")) {
+            return "TIME";
+        }
+        if (type.equals("timestamp")) {
+            return "TIMESTAMP";
+        }
+        if (type.equals("year")) {
+            return "INTEGER";
+        }
+        
+        // 二进制类型
+        if (type.startsWith("blob") || type.equals("longblob") || type.equals("mediumblob")) {
+            return "BYTEA";
+        }
+        if (type.startsWith("binary") || type.startsWith("varbinary")) {
+            return "BYTEA";
+        }
+        
+        // JSON类型
+        if (type.equals("json")) {
+            return "JSON";
+        }
+        
+        // 枚举和集合类型
+        if (type.startsWith("enum")) {
+            return "VARCHAR(255)";
+        }
+        if (type.startsWith("set")) {
+            return "TEXT";
+        }
+        
+        // 默认返回原类型
+        return mysqlType.toUpperCase();
+    }
+    
+    /**
      * 生成创建表的SQL语句
      */
-    private String generateCreateTableSql(Map<String, Object> table) {
+    private String generateCreateTableSql(Map<String, Object> table, String databaseType) {
         StringBuilder sql = new StringBuilder();
         
         String tableName = (String) table.get("tableName");
@@ -303,8 +433,16 @@ public class ProjectVersionController {
             sql.append(" (").append(tableComment).append(")");
         }
         sql.append("\n");
-        sql.append("DROP TABLE IF EXISTS `").append(tableName).append("`;\n");
-        sql.append("CREATE TABLE `").append(tableName).append("` (\n");
+        
+        // 根据数据库类型生成不同的语法
+        if ("postgresql".equalsIgnoreCase(databaseType)) {
+            sql.append("DROP TABLE IF EXISTS \"").append(tableName).append("\"\n");
+            sql.append("CREATE TABLE \"").append(tableName).append("\" (\n");
+        } else {
+            // MySQL语法
+            sql.append("DROP TABLE IF EXISTS `").append(tableName).append("`\n");
+            sql.append("CREATE TABLE `").append(tableName).append("` (\n");
+        }
         
         // 添加字段定义
         @SuppressWarnings("unchecked")
@@ -312,8 +450,16 @@ public class ProjectVersionController {
         if (columns != null && !columns.isEmpty()) {
             for (int i = 0; i < columns.size(); i++) {
                 Map<String, Object> column = columns.get(i);
-                sql.append("  `").append(column.get("columnName")).append("` ");
-                sql.append(column.get("columnType"));
+                
+                if ("postgresql".equalsIgnoreCase(databaseType)) {
+                    sql.append("  \"").append(column.get("columnName")).append("\" ");
+                    // PostgreSQL字段类型转换
+                    sql.append(convertColumnTypeForPostgreSQL((String) column.get("columnType"), (String) column.get("extra")));
+                } else {
+                    // MySQL语法
+                    sql.append("  `").append(column.get("columnName")).append("` ");
+                    sql.append(column.get("columnType"));
+                }
                 
                 // 处理NULL约束
                 if ("NO".equals(column.get("isNullable"))) {
@@ -323,19 +469,28 @@ public class ProjectVersionController {
                 // 处理默认值
                 Object defaultValue = column.get("columnDefault");
                 if (defaultValue != null && !"null".equalsIgnoreCase(defaultValue.toString())) {
-                    sql.append(" DEFAULT '").append(defaultValue).append("'");
+                    if ("postgresql".equalsIgnoreCase(databaseType)) {
+                        sql.append(" DEFAULT '").append(defaultValue).append("'");
+                    } else {
+                        sql.append(" DEFAULT '").append(defaultValue).append("'");
+                    }
                 }
                 
                 // 处理额外属性（如AUTO_INCREMENT）
                 String extra = (String) column.get("extra");
-                if (extra != null && !extra.isEmpty()) {
+                if (extra != null && !extra.isEmpty() && !"postgresql".equalsIgnoreCase(databaseType)) {
+                    // PostgreSQL的AUTO_INCREMENT已在类型转换中处理
                     sql.append(" ").append(extra.toUpperCase());
                 }
                 
                 // 处理字段注释
                 String columnComment = (String) column.get("columnComment");
                 if (columnComment != null && !columnComment.isEmpty()) {
-                    sql.append(" COMMENT '").append(columnComment.replace("'", "\\'")).append("'");
+                    if ("postgresql".equalsIgnoreCase(databaseType)) {
+                        // PostgreSQL注释需要单独的COMMENT语句，这里先跳过
+                    } else {
+                        sql.append(" COMMENT '").append(columnComment.replace("'", "\\'")).append("'");
+                    }
                 }
                 
                 if (i < columns.size() - 1) {
@@ -360,29 +515,76 @@ public class ProjectVersionController {
                 if (Boolean.TRUE.equals(isPrimary)) {
                     sql.append("PRIMARY KEY (").append(columnNames).append(")");
                 } else if (Boolean.TRUE.equals(isUnique)) {
-                    sql.append("UNIQUE KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                    if ("postgresql".equalsIgnoreCase(databaseType)) {
+                        sql.append("UNIQUE (").append(columnNames).append(")");
+                    } else {
+                        sql.append("UNIQUE KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                    }
                 } else {
-                    sql.append("KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                    if ("postgresql".equalsIgnoreCase(databaseType)) {
+                        // PostgreSQL的普通索引需要在CREATE TABLE外部创建
+                        // 这里先跳过，后面单独处理
+                    } else {
+                        sql.append("KEY `").append(indexName).append("` (").append(columnNames).append(")");
+                    }
                 }
             }
         }
         
-        sql.append("\n) ENGINE=").append(engine != null ? engine : "InnoDB");
-        
-        if (autoIncrement != null && !"0".equals(autoIncrement.toString())) {
-            sql.append(" AUTO_INCREMENT=").append(autoIncrement);
-        }
-        
-        if (charset != null) {
-            sql.append(" DEFAULT CHARSET=").append(charset);
-        }
-        
-        if (collation != null) {
-            sql.append(" COLLATE=").append(collation);
-        }
-        
-        if (tableComment != null && !tableComment.isEmpty()) {
-            sql.append(" COMMENT='").append(tableComment.replace("'", "\\'")).append("'");
+        if ("postgresql".equalsIgnoreCase(databaseType)) {
+            sql.append("\n);");
+            
+            // PostgreSQL表注释
+            if (tableComment != null && !tableComment.isEmpty()) {
+                sql.append("\nCOMMENT ON TABLE \"").append(tableName).append("\" IS '").append(tableComment.replace("'", "\\'")).append("';");
+            }
+            
+            // PostgreSQL字段注释
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> columnsForComment = (List<Map<String, Object>>) table.get("columns");
+            if (columnsForComment != null) {
+                for (Map<String, Object> column : columnsForComment) {
+                    String columnComment = (String) column.get("columnComment");
+                    if (columnComment != null && !columnComment.isEmpty()) {
+                        sql.append("\nCOMMENT ON COLUMN \"").append(tableName).append("\".\"").append(column.get("columnName")).append("\" IS '").append(columnComment.replace("'", "\\'")).append("';");
+                    }
+                }
+            }
+            
+            // PostgreSQL普通索引
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> indexesForCreate = (List<Map<String, Object>>) table.get("indexes");
+            if (indexesForCreate != null) {
+                for (Map<String, Object> index : indexesForCreate) {
+                    Boolean isPrimary = (Boolean) index.get("isPrimary");
+                    Boolean isUnique = (Boolean) index.get("isUnique");
+                    String indexName = (String) index.get("indexName");
+                    String columnNames = (String) index.get("columnNames");
+                    
+                    if (!Boolean.TRUE.equals(isPrimary) && !Boolean.TRUE.equals(isUnique)) {
+                        sql.append("\nCREATE INDEX \"").append(indexName).append("\" ON \"").append(tableName).append("\" (").append(columnNames).append(");");
+                    }
+                }
+            }
+        } else {
+            // MySQL语法
+            sql.append("\n) ENGINE=").append(engine != null ? engine : "InnoDB");
+            
+            if (autoIncrement != null && !"0".equals(autoIncrement.toString())) {
+                sql.append(" AUTO_INCREMENT=").append(autoIncrement);
+            }
+            
+            if (charset != null) {
+                sql.append(" DEFAULT CHARSET=").append(charset);
+            }
+            
+            if (collation != null) {
+                sql.append(" COLLATE=").append(collation);
+            }
+            
+            if (tableComment != null && !tableComment.isEmpty()) {
+                sql.append(" COMMENT='").append(tableComment.replace("'", "\\'")).append("'");
+            }
         }
         
         sql.append(";\n");

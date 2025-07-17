@@ -44,7 +44,7 @@
         <form @submit.prevent="submitForm">
           <div class="form-row">
             <label>类型</label>
-            <select v-model="form.type" :disabled="formMode==='detail'">
+            <select v-model="form.type" :disabled="formMode==='detail'" @change="onTypeChange">
               <option value="mysql">MySQL</option>
               <option value="postgresql">PostgreSQL</option>
               <option value="kingbase">人大金仓</option>
@@ -172,6 +172,17 @@ function openAdd() {
     description: '' 
   };
   showForm.value = true;
+}
+
+// 监听数据库类型变化，自动设置默认端口
+function onTypeChange() {
+  if (form.value.type === 'mysql') {
+    form.value.port = 3306;
+  } else if (form.value.type === 'postgresql') {
+    form.value.port = 5432;
+  } else if (form.value.type === 'kingbase') {
+    form.value.port = 54321;
+  }
 }
 
 function editDs(ds: any) {
@@ -457,4 +468,4 @@ async function testConn(ds: any) {
   background: #feb2b2;
   cursor: not-allowed;
 }
-</style> 
+</style>

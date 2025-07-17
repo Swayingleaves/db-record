@@ -43,6 +43,11 @@ public class VersionDatabaseSchema implements Serializable {
     private String collation;
 
     /**
+     * Schema信息（PostgreSQL专用，存储所有schema的详细信息）
+     */
+    private String schemasInfo;
+
+    /**
      * 快照时间
      */
     private LocalDateTime snapshotTime;
@@ -73,6 +78,10 @@ public class VersionDatabaseSchema implements Serializable {
         return collation;
     }
     
+    public String getSchemasInfo() {
+        return schemasInfo;
+    }
+    
     public LocalDateTime getSnapshotTime() {
         return snapshotTime;
     }
@@ -91,6 +100,10 @@ public class VersionDatabaseSchema implements Serializable {
     
     public void setCollation(String collation) {
         this.collation = collation;
+    }
+    
+    public void setSchemasInfo(String schemasInfo) {
+        this.schemasInfo = schemasInfo;
     }
     
     public void setSnapshotTime(LocalDateTime snapshotTime) {
