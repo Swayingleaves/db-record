@@ -61,17 +61,7 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
     }
     
     @Override
-    public List<Map<String, Object>> getTableColumns(Datasource datasource, String tableName) {
-        // 解析表名，支持schema.table格式
-        String schemaName = "public";
-        String actualTableName = tableName;
-
-        if (tableName.contains(".")) {
-            String[] parts = tableName.split("\\.", 2);
-            schemaName = parts[0];
-            actualTableName = parts[1];
-        }
-
+    public List<Map<String, Object>> getTableColumns(Datasource datasource, String schemaName, String tableName) {
         String sql = "SELECT " +
                      "c.column_name, " +
                      "c.ordinal_position, " +
@@ -121,21 +111,11 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
                      "LEFT JOIN pg_description pgd ON pgd.objoid = pgc.oid AND pgd.objsubid = pga.attnum " +
                      "WHERE c.table_schema = ? AND c.table_name = ? " +
                      "ORDER BY c.ordinal_position";
-        return executeQuery(datasource, sql, schemaName, actualTableName);
+        return executeQuery(datasource, sql, schemaName, tableName);
     }
     
     @Override
-    public List<Map<String, Object>> getTableIndexes(Datasource datasource, String tableName) {
-        // 解析表名，支持schema.table格式
-        String schemaName = "public";
-        String actualTableName = tableName;
-
-        if (tableName.contains(".")) {
-            String[] parts = tableName.split("\\.", 2);
-            schemaName = parts[0];
-            actualTableName = parts[1];
-        }
-
+    public List<Map<String, Object>> getTableIndexes(Datasource datasource, String schemaName, String tableName) {
         String sql = "SELECT " +
                      "i.relname AS index_name, " +
                      "t.relname AS table_name, " +
@@ -154,6 +134,6 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
                      "GROUP BY i.relname, t.relname, ix.indisunique, ix.indisprimary, am.amname, i.oid " +
                      "ORDER BY i.relname";
 
-        return executeQuery(datasource, sql, actualTableName, schemaName);
+        return executeQuery(datasource, sql, tableName, schemaName);
     }
 }

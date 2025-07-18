@@ -71,79 +71,116 @@
       <div class="compare-stats">
         <div class="stat-item added">
           <span class="stat-label">新增表：</span>
-          <span class="stat-value">{{ compareResult.addedTables?.length || 0 }}</span>
+          <span class="stat-value">{{ totalAddedTables }}</span>
         </div>
         <div class="stat-item removed">
           <span class="stat-label">删除表：</span>
-          <span class="stat-value">{{ compareResult.removedTables?.length || 0 }}</span>
+          <span class="stat-value">{{ totalRemovedTables }}</span>
         </div>
         <div class="stat-item modified">
           <span class="stat-label">修改表：</span>
-          <span class="stat-value">{{ compareResult.modifiedTables?.length || 0 }}</span>
+          <span class="stat-value">{{ totalModifiedTables }}</span>
         </div>
       </div>
 
       <!-- 详细差异 -->
       <div class="diff-details">
-        <!-- 新增的表 -->
-        <div v-if="compareResult.addedTables?.length" class="diff-section">
-          <h4 class="section-title added">新增的表 ({{ compareResult.addedTables.length }})</h4>
-          <div class="table-list">
-            <div v-for="table in compareResult.addedTables" :key="table.tableName" class="table-item added">
-              <div class="table-header">
-                <span class="table-name">{{ table.tableName }}</span>
-                <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+        <!-- 新增的Schema -->
+        <div v-if="compareResult.addedSchemas?.length" class="diff-section">
+          <h4 class="section-title added">新增的 Schema ({{ compareResult.addedSchemas.length }})</h4>
+          <div v-for="schema in compareResult.addedSchemas" :key="schema.schemaName" class="schema-block">
+            <h5 class="schema-name added">{{ schema.schemaName }}</h5>
+            <div class="table-list">
+              <div v-for="table in schema.tables" :key="table.tableName" class="table-item added">
+                <div class="table-header">
+                  <span class="table-name">{{ table.tableName }}</span>
+                  <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 删除的表 -->
-        <div v-if="compareResult.removedTables?.length" class="diff-section">
-          <h4 class="section-title removed">删除的表 ({{ compareResult.removedTables.length }})</h4>
-          <div class="table-list">
-            <div v-for="table in compareResult.removedTables" :key="table.tableName" class="table-item removed">
-              <div class="table-header">
-                <span class="table-name">{{ table.tableName }}</span>
-                <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+        <!-- 删除的Schema -->
+        <div v-if="compareResult.removedSchemas?.length" class="diff-section">
+          <h4 class="section-title removed">删除的 Schema ({{ compareResult.removedSchemas.length }})</h4>
+          <div v-for="schema in compareResult.removedSchemas" :key="schema.schemaName" class="schema-block">
+            <h5 class="schema-name removed">{{ schema.schemaName }}</h5>
+            <div class="table-list">
+              <div v-for="table in schema.tables" :key="table.tableName" class="table-item removed">
+                <div class="table-header">
+                  <span class="table-name">{{ table.tableName }}</span>
+                  <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 修改的表 -->
-        <div v-if="compareResult.modifiedTables?.length" class="diff-section">
-          <h4 class="section-title modified">修改的表 ({{ compareResult.modifiedTables.length }})</h4>
-          <div class="table-list">
-            <div v-for="table in compareResult.modifiedTables" :key="table.tableName" class="table-item modified">
-              <div class="table-header">
-                <span class="table-name">{{ table.tableName }}</span>
-                <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+        <!-- 修改的Schema -->
+        <div v-if="compareResult.modifiedSchemas?.length" class="diff-section">
+          <h4 class="section-title modified">修改的 Schema ({{ compareResult.modifiedSchemas.length }})</h4>
+          <div v-for="schema in compareResult.modifiedSchemas" :key="schema.schemaName" class="schema-block">
+            <h5 class="schema-name modified">{{ schema.schemaName }}</h5>
+            <!-- 新增的表 -->
+            <div v-if="schema.addedTables?.length" class="sub-section">
+              <h6 class="sub-section-title added">新增的表 ({{ schema.addedTables.length }})</h6>
+              <div class="table-list">
+                <div v-for="table in schema.addedTables" :key="table.tableName" class="table-item added">
+                  <div class="table-header">
+                    <span class="table-name">{{ table.tableName }}</span>
+                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="table-changes">
-                <div v-if="table.addedColumns?.length" class="change-item">
-                  <span class="change-label added">新增字段：</span>
-                  <span class="change-value">{{ table.addedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+            </div>
+            <!-- 删除的表 -->
+            <div v-if="schema.removedTables?.length" class="sub-section">
+              <h6 class="sub-section-title removed">删除的表 ({{ schema.removedTables.length }})</h6>
+              <div class="table-list">
+                <div v-for="table in schema.removedTables" :key="table.tableName" class="table-item removed">
+                  <div class="table-header">
+                    <span class="table-name">{{ table.tableName }}</span>
+                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                  </div>
                 </div>
-                <div v-if="table.removedColumns?.length" class="change-item">
-                  <span class="change-label removed">删除字段：</span>
-                  <span class="change-value">{{ table.removedColumns.map((c: any) => c.columnName).join(', ') }}</span>
-                </div>
-                <div v-if="table.modifiedColumns?.length" class="change-item">
-                  <span class="change-label modified">修改字段：</span>
-                  <span class="change-value">{{ table.modifiedColumns.map((c: any) => c.columnName).join(', ') }}</span>
-                </div>
-                <div v-if="table.addedIndexes?.length" class="change-item">
-                  <span class="change-label added">新增索引：</span>
-                  <span class="change-value">{{ table.addedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
-                </div>
-                <div v-if="table.removedIndexes?.length" class="change-item">
-                  <span class="change-label removed">删除索引：</span>
-                  <span class="change-value">{{ table.removedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
-                </div>
-                <div v-if="table.modifiedIndexes?.length" class="change-item">
-                  <span class="change-label modified">修改索引：</span>
-                  <span class="change-value">{{ table.modifiedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+              </div>
+            </div>
+            <!-- 修改的表 -->
+            <div v-if="schema.modifiedTables?.length" class="sub-section">
+              <h6 class="sub-section-title modified">修改的表 ({{ schema.modifiedTables.length }})</h6>
+              <div class="table-list">
+                <div v-for="table in schema.modifiedTables" :key="table.tableName" class="table-item modified">
+                  <div class="table-header">
+                    <span class="table-name">{{ table.tableName }}</span>
+                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                  </div>
+                  <div class="table-changes">
+                    <div v-if="table.addedColumns?.length" class="change-item">
+                      <span class="change-label added">新增字段：</span>
+                      <span class="change-value">{{ table.addedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                    </div>
+                    <div v-if="table.removedColumns?.length" class="change-item">
+                      <span class="change-label removed">删除字段：</span>
+                      <span class="change-value">{{ table.removedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                    </div>
+                    <div v-if="table.modifiedColumns?.length" class="change-item">
+                      <span class="change-label modified">修改字段：</span>
+                      <span class="change-value">{{ table.modifiedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                    </div>
+                    <div v-if="table.addedIndexes?.length" class="change-item">
+                      <span class="change-label added">新增索引：</span>
+                      <span class="change-value">{{ table.addedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                    </div>
+                    <div v-if="table.removedIndexes?.length" class="change-item">
+                      <span class="change-label removed">删除索引：</span>
+                      <span class="change-value">{{ table.removedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                    </div>
+                    <div v-if="table.modifiedIndexes?.length" class="change-item">
+                      <span class="change-label modified">修改索引：</span>
+                      <span class="change-value">{{ table.modifiedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -160,10 +197,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import request from '../utils/request';
-import type { ProjectVersion } from '../types/api';
+import type { ProjectVersion, CompareResult } from '../types/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -177,7 +214,7 @@ const projectName = ref<string>('');
 const versions = ref<ProjectVersion[]>([]);
 const baseVersionId = ref<number | null>(null);
 const targetVersionId = ref<number | null>(null);
-const compareResult = ref<any>(null);
+const compareResult = ref<CompareResult | null>(null);
 
 // 加载状态
 const loading = ref(false);
@@ -188,6 +225,41 @@ const exportLoading = ref(false);
 // Toast消息
 const toastMessage = ref('');
 const toastType = ref<'success' | 'error'>('success');
+
+// 计算总表数
+const totalAddedTables = computed(() => {
+  if (!compareResult.value) return 0;
+  let count = 0;
+  if (compareResult.value.addedSchemas) {
+    count += compareResult.value.addedSchemas.reduce((sum, schema) => sum + (schema.tables?.length || 0), 0);
+  }
+  if (compareResult.value.modifiedSchemas) {
+    count += compareResult.value.modifiedSchemas.reduce((sum, schema) => sum + (schema.addedTables?.length || 0), 0);
+  }
+  return count;
+});
+
+const totalRemovedTables = computed(() => {
+  if (!compareResult.value) return 0;
+  let count = 0;
+  if (compareResult.value.removedSchemas) {
+    count += compareResult.value.removedSchemas.reduce((sum, schema) => sum + (schema.tables?.length || 0), 0);
+  }
+  if (compareResult.value.modifiedSchemas) {
+    count += compareResult.value.modifiedSchemas.reduce((sum, schema) => sum + (schema.removedTables?.length || 0), 0);
+  }
+  return count;
+});
+
+const totalModifiedTables = computed(() => {
+  if (!compareResult.value) return 0;
+  let count = 0;
+  if (compareResult.value.modifiedSchemas) {
+    count += compareResult.value.modifiedSchemas.reduce((sum, schema) => sum + (schema.modifiedTables?.length || 0), 0);
+  }
+  return count;
+});
+
 
 // 页面加载
 onMounted(() => {
@@ -626,22 +698,61 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   color: #e6a23c;
 }
 
+.schema-block {
+  padding: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+.schema-block:last-child {
+  border-bottom: none;
+}
+
+.schema-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #dcdfe6;
+}
+.schema-name.added { color: #67c23a; }
+.schema-name.removed { color: #f56c6c; }
+.schema-name.modified { color: #e6a23c; }
+
+.sub-section {
+  margin-top: 16px;
+}
+.sub-section:first-child {
+  margin-top: 0;
+}
+
+.sub-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+.sub-section-title.added { background-color: #f0f9eb; color: #67c23a; }
+.sub-section-title.removed { background-color: #fef0f0; color: #f56c6c; }
+.sub-section-title.modified { background-color: #fdf6ec; color: #e6a23c; }
+
+
 .table-list {
   display: flex;
   flex-direction: column;
 }
 
 .table-item {
-  padding: 16px;
-  border-bottom: 1px solid #f5f7fa;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 8px;
 }
-
 .table-item:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .table-item.added {
-  background: #f0f9ff;
+  background: #f0f9eb;
 }
 
 .table-item.removed {

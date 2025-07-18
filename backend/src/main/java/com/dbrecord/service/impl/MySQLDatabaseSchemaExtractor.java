@@ -40,13 +40,13 @@ public class MySQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtracto
     }
     
     @Override
-    public List<Map<String, Object>> getTableColumns(Datasource datasource, String tableName) {
+    public List<Map<String, Object>> getTableColumns(Datasource datasource, String schemaName, String tableName) {
         String sql = "SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION";
         return executeQuery(datasource, sql, datasource.getDatabaseName(), tableName);
     }
     
     @Override
-    public List<Map<String, Object>> getTableIndexes(Datasource datasource, String tableName) {
+    public List<Map<String, Object>> getTableIndexes(Datasource datasource, String schemaName, String tableName) {
         String sql = "SELECT " +
                      "INDEX_NAME, " +
                      "TABLE_NAME, " +

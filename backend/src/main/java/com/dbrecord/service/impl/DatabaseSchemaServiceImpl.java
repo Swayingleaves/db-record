@@ -158,12 +158,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 Long versionTableId = versionTableStructure.getId();
                 
                 // 保存表字段信息
-                // 对于PostgreSQL，需要传递完整的schema.table格式
-                String fullTableName = tableName;
-                if (schemaName != null && !"public".equals(schemaName)) {
-                    fullTableName = schemaName + "." + tableName;
-                }
-                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, fullTableName);
+                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, schemaName, tableName);
                 for (Map<String, Object> columnInfo : columns) {
                     VersionTableColumn versionTableColumn = new VersionTableColumn();
                     versionTableColumn.setVersionTableId(versionTableId);
@@ -237,8 +232,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 }
                 
                 // 保存表索引信息
-                // 对于PostgreSQL，需要传递完整的schema.table格式
-                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, fullTableName);
+                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, schemaName, tableName);
                 Map<String, List<Map<String, Object>>> indexGroups = groupIndexesByName(indexes);
                 
                 for (Map.Entry<String, List<Map<String, Object>>> entry : indexGroups.entrySet()) {
@@ -367,61 +361,57 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             // 获取两个版本的表结构
             List<VersionTableStructure> fromTables = getVersionTableStructures(fromVersionId);
             List<VersionTableStructure> toTables = getVersionTableStructures(toVersionId);
-            
-            // 转换为Map便于比较
-            Map<String, VersionTableStructure> fromTableMap = new HashMap<>();
-            Map<String, VersionTableStructure> toTableMap = new HashMap<>();
-            
-            for (VersionTableStructure table : fromTables) {
-                fromTableMap.put(table.getTableName(), table);
-            }
-            for (VersionTableStructure table : toTables) {
-                toTableMap.put(table.getTableName(), table);
-            }
-            
-            // 找出新增的表
-            List<Map<String, Object>> addedTables = new ArrayList<>();
-            for (String tableName : toTableMap.keySet()) {
-                if (!fromTableMap.containsKey(tableName)) {
-                    VersionTableStructure table = toTableMap.get(tableName);
-                    Map<String, Object> tableInfo = new HashMap<>();
-                    tableInfo.put("tableName", table.getTableName());
-                    tableInfo.put("tableComment", table.getTableComment());
-                    addedTables.add(tableInfo);
+
+            // 按schema分组
+            Map<String, List<VersionTableStructure>> fromSchemaMap = groupTablesBySchema(fromTables);
+            Map<String, List<VersionTableStructure>> toSchemaMap = groupTablesBySchema(toTables);
+
+            // 找出新增、删除和修改的schema
+            List<Map<String, Object>> addedSchemas = new ArrayList<>();
+            List<Map<String, Object>> removedSchemas = new ArrayList<>();
+            List<Map<String, Object>> modifiedSchemas = new ArrayList<>();
+
+            // 1. 找出新增的schema
+            for (String schemaName : toSchemaMap.keySet()) {
+                if (!fromSchemaMap.containsKey(schemaName)) {
+                    Map<String, Object> schemaInfo = new HashMap<>();
+                    schemaInfo.put("schemaName", schemaName);
+                    schemaInfo.put("tables", toSchemaMap.get(schemaName).stream()
+                        .map(t -> Map.of("tableName", t.getTableName(), "tableComment", t.getTableComment()))
+                        .collect(java.util.stream.Collectors.toList()));
+                    addedSchemas.add(schemaInfo);
                 }
             }
-            
-            // 找出删除的表
-            List<Map<String, Object>> removedTables = new ArrayList<>();
-            for (String tableName : fromTableMap.keySet()) {
-                if (!toTableMap.containsKey(tableName)) {
-                    VersionTableStructure table = fromTableMap.get(tableName);
-                    Map<String, Object> tableInfo = new HashMap<>();
-                    tableInfo.put("tableName", table.getTableName());
-                    tableInfo.put("tableComment", table.getTableComment());
-                    removedTables.add(tableInfo);
+
+            // 2. 找出删除的schema
+            for (String schemaName : fromSchemaMap.keySet()) {
+                if (!toSchemaMap.containsKey(schemaName)) {
+                    Map<String, Object> schemaInfo = new HashMap<>();
+                    schemaInfo.put("schemaName", schemaName);
+                    schemaInfo.put("tables", fromSchemaMap.get(schemaName).stream()
+                        .map(t -> Map.of("tableName", t.getTableName(), "tableComment", t.getTableComment()))
+                        .collect(java.util.stream.Collectors.toList()));
+                    removedSchemas.add(schemaInfo);
                 }
             }
-            
-            // 找出修改的表
-            List<Map<String, Object>> modifiedTables = new ArrayList<>();
-            for (String tableName : fromTableMap.keySet()) {
-                if (toTableMap.containsKey(tableName)) {
-                    VersionTableStructure fromTable = fromTableMap.get(tableName);
-                    VersionTableStructure toTable = toTableMap.get(tableName);
-                    
-                    Map<String, Object> tableChanges = compareTableDetails(fromTable, toTable);
-                    if (!tableChanges.isEmpty()) {
-                        tableChanges.put("tableName", tableName);
-                        tableChanges.put("tableComment", toTable.getTableComment());
-                        modifiedTables.add(tableChanges);
+
+            // 3. 找出共有的schema并比较其内部差异
+            for (String schemaName : fromSchemaMap.keySet()) {
+                if (toSchemaMap.containsKey(schemaName)) {
+                    Map<String, Object> schemaChanges = compareSchemaDetails(
+                        fromSchemaMap.get(schemaName),
+                        toSchemaMap.get(schemaName)
+                    );
+                    if (!schemaChanges.isEmpty()) {
+                        schemaChanges.put("schemaName", schemaName);
+                        modifiedSchemas.add(schemaChanges);
                     }
                 }
             }
-            
-            result.put("addedTables", addedTables);
-            result.put("removedTables", removedTables);
-            result.put("modifiedTables", modifiedTables);
+
+            result.put("addedSchemas", addedSchemas);
+            result.put("removedSchemas", removedSchemas);
+            result.put("modifiedSchemas", modifiedSchemas);
             
         } catch (Exception e) {
             log.error("版本比较失败: {}", e.getMessage(), e);
@@ -429,6 +419,82 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
         
         return result;
+    }
+
+    /**
+     * 按schema对表进行分组
+     */
+    private Map<String, List<VersionTableStructure>> groupTablesBySchema(List<VersionTableStructure> tables) {
+        Map<String, List<VersionTableStructure>> schemaMap = new HashMap<>();
+        for (VersionTableStructure table : tables) {
+            String schemaName = table.getSchemaName() != null ? table.getSchemaName() : "public";
+            schemaMap.computeIfAbsent(schemaName, k -> new ArrayList<>()).add(table);
+        }
+        return schemaMap;
+    }
+
+    /**
+     * 比较同一个schema内部的表差异
+     */
+    private Map<String, Object> compareSchemaDetails(List<VersionTableStructure> fromTables, List<VersionTableStructure> toTables) {
+        Map<String, Object> changes = new HashMap<>();
+        
+        Map<String, VersionTableStructure> fromTableMap = fromTables.stream()
+            .collect(java.util.stream.Collectors.toMap(VersionTableStructure::getTableName, t -> t));
+        Map<String, VersionTableStructure> toTableMap = toTables.stream()
+            .collect(java.util.stream.Collectors.toMap(VersionTableStructure::getTableName, t -> t));
+
+        // 找出新增的表
+        List<Map<String, Object>> addedTables = new ArrayList<>();
+        for (String tableName : toTableMap.keySet()) {
+            if (!fromTableMap.containsKey(tableName)) {
+                VersionTableStructure table = toTableMap.get(tableName);
+                Map<String, Object> tableInfo = new HashMap<>();
+                tableInfo.put("tableName", table.getTableName());
+                tableInfo.put("tableComment", table.getTableComment());
+                addedTables.add(tableInfo);
+            }
+        }
+
+        // 找出删除的表
+        List<Map<String, Object>> removedTables = new ArrayList<>();
+        for (String tableName : fromTableMap.keySet()) {
+            if (!toTableMap.containsKey(tableName)) {
+                VersionTableStructure table = fromTableMap.get(tableName);
+                Map<String, Object> tableInfo = new HashMap<>();
+                tableInfo.put("tableName", table.getTableName());
+                tableInfo.put("tableComment", table.getTableComment());
+                removedTables.add(tableInfo);
+            }
+        }
+
+        // 找出修改的表
+        List<Map<String, Object>> modifiedTables = new ArrayList<>();
+        for (String tableName : fromTableMap.keySet()) {
+            if (toTableMap.containsKey(tableName)) {
+                VersionTableStructure fromTable = fromTableMap.get(tableName);
+                VersionTableStructure toTable = toTableMap.get(tableName);
+                
+                Map<String, Object> tableChanges = compareTableDetails(fromTable, toTable);
+                if (!tableChanges.isEmpty()) {
+                    tableChanges.put("tableName", tableName);
+                    tableChanges.put("tableComment", toTable.getTableComment());
+                    modifiedTables.add(tableChanges);
+                }
+            }
+        }
+
+        if (!addedTables.isEmpty()) {
+            changes.put("addedTables", addedTables);
+        }
+        if (!removedTables.isEmpty()) {
+            changes.put("removedTables", removedTables);
+        }
+        if (!modifiedTables.isEmpty()) {
+            changes.put("modifiedTables", modifiedTables);
+        }
+
+        return changes;
     }
     
     /**

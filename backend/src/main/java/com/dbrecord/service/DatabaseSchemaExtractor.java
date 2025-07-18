@@ -27,18 +27,20 @@ public interface DatabaseSchemaExtractor {
     /**
      * 获取指定表的字段信息
      * @param datasource 数据源
+     * @param schemaName schema名
      * @param tableName 表名
      * @return 字段信息列表
      */
-    List<Map<String, Object>> getTableColumns(Datasource datasource, String tableName);
+    List<Map<String, Object>> getTableColumns(Datasource datasource, String schemaName, String tableName);
     
     /**
      * 获取指定表的索引信息
      * @param datasource 数据源
+     * @param schemaName schema名
      * @param tableName 表名
      * @return 索引信息列表
      */
-    List<Map<String, Object>> getTableIndexes(Datasource datasource, String tableName);
+    List<Map<String, Object>> getTableIndexes(Datasource datasource, String schemaName, String tableName);
     
     /**
      * 获取数据库连接

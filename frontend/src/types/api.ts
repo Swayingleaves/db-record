@@ -90,4 +90,51 @@ export interface PageResult<T> {
   size: number;
   current: number;
   pages: number;
-} 
+}
+
+// 版本对比相关
+interface TableInfo {
+  tableName: string;
+  tableComment?: string;
+}
+
+interface ColumnChange {
+  columnName: string;
+  // ... 其他可能的字段
+}
+
+interface IndexChange {
+  indexName: string;
+  // ... 其他可能的字段
+}
+
+interface ModifiedTable extends TableInfo {
+  addedColumns?: ColumnChange[];
+  removedColumns?: ColumnChange[];
+  modifiedColumns?: ColumnChange[];
+  addedIndexes?: IndexChange[];
+  removedIndexes?: IndexChange[];
+  modifiedIndexes?: IndexChange[];
+}
+
+interface SchemaChanges {
+  schemaName: string;
+  addedTables?: TableInfo[];
+  removedTables?: TableInfo[];
+  modifiedTables?: ModifiedTable[];
+}
+
+interface SchemaInfo {
+  schemaName: string;
+  tables: TableInfo[];
+}
+
+export interface CompareResult {
+  addedSchemas?: SchemaInfo[];
+  removedSchemas?: SchemaInfo[];
+  modifiedSchemas?: SchemaChanges[];
+  fromVersion?: string;
+  toVersion?: string;
+  error?: string;
+}
+ 
