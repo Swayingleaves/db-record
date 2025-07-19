@@ -47,9 +47,6 @@
       <div class="database-structure-card">
         <div class="card-header">
           <h3>数据库结构</h3>
-          <button class="capture-btn" @click="captureSchema" :disabled="captureLoading">
-            {{ captureLoading ? '捕获中...' : '重新捕获结构' }}
-          </button>
         </div>
         
         <!-- 数据库基本信息 -->
@@ -74,7 +71,7 @@
             </div>
           </div>
           
-          <!-- PostgreSQL Schema信息 -->
+          <!-- PostgreSQL/KingbaseES Schema信息 -->
           <div v-if="schemasInfo && schemasInfo.length > 0" class="schemas-section">
             <h4>Schema信息 ({{ schemasInfo.length }}个Schema)</h4>
             <div class="schemas-container">
@@ -92,8 +89,8 @@
         <div v-if="tables.length > 0" class="tables-section">
           <h4>表结构 ({{ tables.length }}个表)</h4>
 
-          <!-- PostgreSQL 分层显示 -->
-          <div v-if="isPostgreSQL && schemaGroups" class="schemas-tables-container">
+          <!-- PostgreSQL/KingbaseES 分层显示 -->
+          <div v-if="isSchemaBasedDatabase && schemaGroups" class="schemas-tables-container">
             <div v-for="(schemaTables, schemaName) in schemaGroups" :key="schemaName" class="schema-group">
               <div class="schema-header" @click="toggleSchema(schemaName)">
                 <h5>
@@ -217,7 +214,7 @@
             </div>
           </div>
 
-          <!-- 非PostgreSQL 平铺显示 -->
+          <!-- 非Schema数据库 平铺显示 -->
           <div v-else class="tables-container">
             <div v-for="table in tables" :key="table.id" class="table-card">
               <div class="table-header" @click="toggleTable(table.id)">
@@ -417,7 +414,6 @@ const expandedSchemas = ref<string[]>([]);
 // 加载状态
 const loading = ref(false);
 const error = ref('');
-const captureLoading = ref(false);
 
 // Toast消息
 const toastMessage = ref('');
@@ -462,7 +458,7 @@ async function loadVersionDetail() {
     tables.value = structureData.tables || [];
     datasourceType.value = structureData.datasourceType || null;
 
-    // 解析PostgreSQL的schema信息
+    // 解析基于Schema数据库的schema信息（PostgreSQL/KingbaseES）
     if (structureData.database?.schemasInfo) {
       try {
         schemasInfo.value = JSON.parse(structureData.database.schemasInfo);
@@ -474,8 +470,8 @@ async function loadVersionDetail() {
       schemasInfo.value = [];
     }
 
-    // 如果是PostgreSQL，初始化展开的schema（默认展开所有schema）
-    if (datasourceType.value === 'postgresql') {
+    // 如果是基于Schema的数据库（PostgreSQL/KingbaseES），初始化展开的schema（默认展开所有schema）
+    if (datasourceType.value === 'postgresql' || datasourceType.value === 'kingbase') {
       const schemaNames = new Set<string>();
       tables.value.forEach(table => {
         if (table.schemaName) {
@@ -494,8 +490,8 @@ async function loadVersionDetail() {
 
 // 计算属性：按schema分组的表数据
 const schemaGroups = computed(() => {
-  if (datasourceType.value !== 'postgresql') {
-    return null; // 非PostgreSQL数据源不使用分组
+  if (datasourceType.value !== 'postgresql' && datasourceType.value !== 'kingbase') {
+    return null; // 非基于Schema的数据源不使用分组
   }
 
   const groups: { [schemaName: string]: TableStructure[] } = {};
@@ -511,9 +507,9 @@ const schemaGroups = computed(() => {
   return groups;
 });
 
-// 计算属性：是否为PostgreSQL数据源
-const isPostgreSQL = computed(() => {
-  return datasourceType.value === 'postgresql';
+// 计算属性：是否为基于Schema的数据库
+const isSchemaBasedDatabase = computed(() => {
+  return datasourceType.value === 'postgresql' || datasourceType.value === 'kingbase';
 });
 
 // 切换schema展开状态
@@ -566,25 +562,7 @@ function getKeyTypeText(keyType: string): string {
   }
 }
 
-// 手动捕获数据库结构
-async function captureSchema() {
-  try {
-    captureLoading.value = true;
-    const versionId = parseInt(route.params.versionId as string);
-    
-    await request.post(`/api/project-version/capture-schema/${versionId}`);
-    
-    showToast('数据库结构捕获成功', 'success');
-    
-    // 重新加载版本详情
-    await loadVersionDetail();
-    
-  } catch (err: any) {
-    showToast(err.response?.data?.msg || '捕获数据库结构失败', 'error');
-  } finally {
-    captureLoading.value = false;
-  }
-}
+
 </script>
 
 <style scoped>
@@ -698,25 +676,7 @@ async function captureSchema() {
   color: #333;
 }
 
-.capture-btn {
-  background: #409eff;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
 
-.capture-btn:hover:not(:disabled) {
-  background: #337ecc;
-}
-
-.capture-btn:disabled {
-  background: #c0c4cc;
-  cursor: not-allowed;
-}
 
 .version-info {
   display: flex;

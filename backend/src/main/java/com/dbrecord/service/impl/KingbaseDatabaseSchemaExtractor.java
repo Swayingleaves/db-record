@@ -8,52 +8,69 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * PostgreSQL数据库结构提取器
+ * 人大金仓数据库结构提取器
+ * KingbaseES 基于 PostgreSQL，所以大部分逻辑可以复用 PostgreSQL 的实现
  */
 @Component
-public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtractor {
+public class KingbaseDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtractor {
 
     @Override
     protected String buildConnectionUrl(Datasource datasource) {
-        return String.format("jdbc:postgresql://%s:%d/%s",
+        return String.format("jdbc:kingbase8://%s:%d/%s",
                 datasource.getHost(), datasource.getPort(), datasource.getDatabaseName());
     }
 
     @Override
     protected String getDatabaseType() {
-        return "postgresql";
+        return "kingbase";
     }
     
     @Override
     public Map<String, Object> getDatabaseInfo(Datasource datasource) {
-        String sql = "SELECT pg_encoding_to_char(encoding) as charset, datcollate as collation " +
-                     "FROM pg_database WHERE datname = ?";
+        Map<String, Object> databaseInfo = new HashMap<>();
         
-        List<Map<String, Object>> results = executeQuery(datasource, sql, datasource.getDatabaseName());
+        // 获取数据库基本信息
+        String sql = "SELECT " +
+                     "current_database() AS database_name, " +
+                     "pg_encoding_to_char(encoding) AS charset, " +
+                     "datcollate AS collation " +
+                     "FROM pg_database WHERE datname = current_database()";
         
-        Map<String, Object> dbInfo = new HashMap<>();
-        if (!results.isEmpty()) {
-            dbInfo.putAll(results.get(0));
+        List<Map<String, Object>> result = executeQuery(datasource, sql);
+        if (!result.isEmpty()) {
+            Map<String, Object> dbInfo = result.get(0);
+            databaseInfo.put("databaseName", dbInfo.get("database_name"));
+            databaseInfo.put("charset", dbInfo.get("charset"));
+            databaseInfo.put("collation", dbInfo.get("collation"));
         }
         
-        // 获取所有schema信息，使用配置过滤
+        // 获取 schema 信息，使用配置过滤系统 schema
         var filterConfig = getFilterConfig();
-        String schemasSql = "SELECT schema_name, schema_owner " +
-                           "FROM information_schema.schemata " +
+        String schemasSql = "SELECT " +
+                           "schema_name, " +
+                           "schema_owner, " +
+                           "obj_description(n.oid, 'pg_namespace') AS schema_comment " +
+                           "FROM information_schema.schemata s " +
+                           "LEFT JOIN pg_namespace n ON n.nspname = s.schema_name " +
                            "WHERE schema_name NOT IN (" + filterConfig.getExcludedSchemasForSql() + ") " +
                            "ORDER BY schema_name";
         
-        List<Map<String, Object>> schemasResults = executeQuery(datasource, schemasSql);
-        dbInfo.put("schemas_info", schemasResults);
-        
-        return dbInfo;
+        List<Map<String, Object>> schemas = executeQuery(datasource, schemasSql);
+        // 使用与PostgreSQL一致的key名称
+        databaseInfo.put("schemas_info", schemas);
+
+        return databaseInfo;
     }
-    
+
     @Override
     public List<Map<String, Object>> getTablesStructure(Datasource datasource) {
         var filterConfig = getFilterConfig();
-        String sql = "SELECT t.table_schema as schema_name, t.table_name, obj_description(c.oid) as table_comment, " +
-                     "t.table_type, 'postgresql' as engine, " +
+        String sql = "SELECT " +
+                     "t.table_schema AS schema_name, " +
+                     "t.table_name, " +
+                     "t.table_type, " +
+                     "obj_description(c.oid, 'pg_class') AS table_comment, " +
+                     "'kingbase' as engine, " +
                      "COALESCE(s.n_tup_ins, 0) as table_rows, " +
                      "COALESCE(pg_total_relation_size(c.oid), 0) as data_length, " +
                      "0 as index_length, " +
@@ -61,7 +78,8 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
                      "FROM information_schema.tables t " +
                      "LEFT JOIN pg_class c ON c.relname = t.table_name AND c.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = t.table_schema) " +
                      "LEFT JOIN pg_stat_user_tables s ON s.relname = t.table_name AND s.schemaname = t.table_schema " +
-                     "WHERE t.table_schema NOT IN (" + filterConfig.getExcludedSchemasForSql() + ") AND t.table_type = 'BASE TABLE' " +
+                     "WHERE t.table_schema NOT IN (" + filterConfig.getExcludedSchemasForSql() + ") " +
+                     "AND t.table_type = 'BASE TABLE' " +
                      "ORDER BY t.table_schema, t.table_name";
 
         List<Map<String, Object>> tables = executeQuery(datasource, sql);
@@ -78,6 +96,11 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
     
     @Override
     public List<Map<String, Object>> getTableColumns(Datasource datasource, String schemaName, String tableName) {
+        // 如果 schemaName 为空，使用默认值
+        if (schemaName == null || schemaName.isEmpty()) {
+            schemaName = "public";
+        }
+        
         String sql = "SELECT " +
                      "c.column_name, " +
                      "c.ordinal_position, " +
@@ -129,9 +152,14 @@ public class PostgreSQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExt
                      "ORDER BY c.ordinal_position";
         return executeQuery(datasource, sql, schemaName, tableName);
     }
-    
+
     @Override
     public List<Map<String, Object>> getTableIndexes(Datasource datasource, String schemaName, String tableName) {
+        // 如果 schemaName 为空，使用默认值
+        if (schemaName == null || schemaName.isEmpty()) {
+            schemaName = "public";
+        }
+        
         String sql = "SELECT " +
                      "i.relname AS index_name, " +
                      "t.relname AS table_name, " +

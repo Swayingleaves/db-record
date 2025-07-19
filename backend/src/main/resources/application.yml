@@ -13,3 +13,62 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
+
+# 数据库扫描过滤配置
+database:
+  scan-filters:
+    mysql:
+      excluded-schemas:
+        - information_schema
+        - performance_schema
+        - mysql
+        - sys
+      excluded-tables:
+        # MySQL不使用schema概念，这里可以配置特定数据库下需要排除的表
+        # 格式: database_name:
+        #   - table1
+        #   - table2
+        # 示例配置（如果没有需要排除的表，保持为空）
+        {}
+    postgresql:
+      excluded-schemas:
+        - information_schema
+        - pg_catalog
+        - pg_toast
+        - pg_temp_1
+        - pg_toast_temp_1
+      excluded-tables:
+        public:
+          - temp_table
+          - log_table
+        # 可以为其他schema配置排除的表
+        # schema_name:
+        #   - table1
+        #   - table2
+    kingbase:
+      excluded-schemas:
+        - information_schema
+        - pg_catalog
+        - pg_toast
+        - pg_temp_1
+        - pg_toast_temp_1
+        - sys
+        - SYS_HM
+        - sys_catalog
+        - sysmac
+        - anon
+        - dbms_sql
+        - perf
+        - pg_bitmapindex
+        - src_restrict
+        - sysaudit
+        - wmsys
+        - xlog_record_read
+      excluded-tables:
+        public:
+          - system_table
+          - temp_table
+        # 可以为其他schema配置排除的表
+        # schema_name:
+        #   - table1
+        #   - table2

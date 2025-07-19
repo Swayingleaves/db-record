@@ -299,8 +299,8 @@ public class ProjectVersionController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tables = (List<Map<String, Object>>) completeStructure.get("tables");
         if (tables != null && !tables.isEmpty()) {
-            if ("postgresql".equalsIgnoreCase(databaseType)) {
-                // PostgreSQL: 先创建schema，再创建表
+            if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
+                // PostgreSQL/KingbaseES: 先创建schema，再创建表
                 generatePostgreSQLStructureSql(sql, tables, databaseInfo);
             } else {
                 // MySQL等其他数据库: 直接创建表
@@ -501,8 +501,8 @@ public class ProjectVersionController {
         sql.append("\n");
 
         // 根据数据库类型生成不同的语法
-        if ("postgresql".equalsIgnoreCase(databaseType)) {
-            // PostgreSQL语法，使用schema.table格式
+        if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
+            // PostgreSQL/KingbaseES语法，使用schema.table格式
             if (schemaName != null && !schemaName.isEmpty()) {
                 sql.append("DROP TABLE IF EXISTS \"").append(schemaName).append("\".\"").append(tableName).append("\" CASCADE;\n");
                 sql.append("CREATE TABLE \"").append(schemaName).append("\".\"").append(tableName).append("\" (\n");
@@ -523,9 +523,9 @@ public class ProjectVersionController {
             for (int i = 0; i < columns.size(); i++) {
                 Map<String, Object> column = columns.get(i);
                 
-                if ("postgresql".equalsIgnoreCase(databaseType)) {
+                if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
                     sql.append("  \"").append(column.get("columnName")).append("\" ");
-                    // PostgreSQL字段类型转换
+                    // PostgreSQL/KingbaseES字段类型转换
                     sql.append(convertColumnTypeForPostgreSQL((String) column.get("columnType"), (String) column.get("extra")));
                 } else {
                     // MySQL语法
@@ -587,14 +587,14 @@ public class ProjectVersionController {
                 if (Boolean.TRUE.equals(isPrimary)) {
                     sql.append("PRIMARY KEY (").append(columnNames).append(")");
                 } else if (Boolean.TRUE.equals(isUnique)) {
-                    if ("postgresql".equalsIgnoreCase(databaseType)) {
+                    if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
                         sql.append("UNIQUE (").append(columnNames).append(")");
                     } else {
                         sql.append("UNIQUE KEY `").append(indexName).append("` (").append(columnNames).append(")");
                     }
                 } else {
-                    if ("postgresql".equalsIgnoreCase(databaseType)) {
-                        // PostgreSQL的普通索引需要在CREATE TABLE外部创建
+                    if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
+                        // PostgreSQL/KingbaseES的普通索引需要在CREATE TABLE外部创建
                         // 这里先跳过，后面单独处理
                     } else {
                         sql.append("KEY `").append(indexName).append("` (").append(columnNames).append(")");
@@ -603,10 +603,10 @@ public class ProjectVersionController {
             }
         }
         
-        if ("postgresql".equalsIgnoreCase(databaseType)) {
+        if ("postgresql".equalsIgnoreCase(databaseType) || "kingbase".equalsIgnoreCase(databaseType)) {
             sql.append("\n);");
-            
-            // PostgreSQL表注释
+
+            // PostgreSQL/KingbaseES表注释
             if (tableComment != null && !tableComment.isEmpty()) {
                 sql.append("\nCOMMENT ON TABLE \"").append(tableName).append("\" IS '").append(tableComment.replace("'", "\\'")).append("';");
             }
@@ -739,42 +739,7 @@ public class ProjectVersionController {
         }
     }
     
-    /**
-     * 手动捕获数据库结构
-     */
-    @PostMapping("/capture-schema/{id}")
-    public Result<Object> captureSchema(@PathVariable Long id) {
-        try {
-            User currentUser = getCurrentUser();
-            
-            ProjectVersion version = projectVersionService.getById(id);
-            if (version == null || !version.getUserId().equals(currentUser.getId())) {
-                return Result.error(403, "版本不存在或无权限访问");
-            }
-            
-            // 获取项目信息
-            Project project = projectService.getById(version.getProjectId());
-            if (project == null || project.getDatasourceId() == null) {
-                return Result.error(400, "项目未关联数据源");
-            }
-            
-            Datasource datasource = datasourceService.getById(project.getDatasourceId());
-            if (datasource == null || !datasource.getUserId().equals(currentUser.getId())) {
-                return Result.error(403, "数据源不存在或无权限访问");
-            }
-            
-            boolean success = databaseSchemaService.captureAndSaveDatabaseSchema(
-                version.getId(), datasource, currentUser.getId());
-            
-            if (success) {
-                return Result.success("数据库结构捕获成功");
-            } else {
-                return Result.error("数据库结构捕获失败");
-            }
-        } catch (Exception e) {
-            return Result.error("数据库结构捕获失败: " + e.getMessage());
-        }
-    }
+
     
     /**
      * 获取当前登录用户

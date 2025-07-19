@@ -3,6 +3,7 @@ package com.dbrecord.service;
 import com.dbrecord.enums.DatabaseType;
 import com.dbrecord.service.impl.MySQLDatabaseSchemaExtractor;
 import com.dbrecord.service.impl.PostgreSQLDatabaseSchemaExtractor;
+import com.dbrecord.service.impl.KingbaseDatabaseSchemaExtractor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -19,9 +20,11 @@ public class DatabaseSchemaExtractorFactory {
     
     @Autowired
     public DatabaseSchemaExtractorFactory(MySQLDatabaseSchemaExtractor mysqlExtractor,
-                                         PostgreSQLDatabaseSchemaExtractor postgresqlExtractor) {
+                                         PostgreSQLDatabaseSchemaExtractor postgresqlExtractor,
+                                         KingbaseDatabaseSchemaExtractor kingbaseExtractor) {
         extractors.put(DatabaseType.MYSQL, mysqlExtractor);
         extractors.put(DatabaseType.POSTGRESQL, postgresqlExtractor);
+        extractors.put(DatabaseType.KINGBASE, kingbaseExtractor);
     }
     
     /**

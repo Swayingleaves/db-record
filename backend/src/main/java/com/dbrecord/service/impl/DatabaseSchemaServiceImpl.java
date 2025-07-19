@@ -228,7 +228,18 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                     versionTableColumn.setColumnKey(columnKey);
                     versionTableColumn.setExtra(extra);
                     versionTableColumn.setColumnComment(columnComment);
-                    versionTableColumnMapper.insert(versionTableColumn);
+
+                    // 检查是否已存在相同的字段记录，避免重复插入
+                    QueryWrapper<VersionTableColumn> columnCheckWrapper = new QueryWrapper<>();
+                    columnCheckWrapper.eq("version_table_id", versionTableId);
+                    columnCheckWrapper.eq("column_name", columnName);
+                    VersionTableColumn existingColumn = versionTableColumnMapper.selectOne(columnCheckWrapper);
+
+                    if (existingColumn == null) {
+                        versionTableColumnMapper.insert(versionTableColumn);
+                    } else {
+                        log.warn("字段 {} 在表 {} 中已存在，跳过插入", columnName, versionTableId);
+                    }
                 }
                 
                 // 保存表索引信息
@@ -311,39 +322,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         return versionDatabaseSchemaMapper.selectOne(queryWrapper);
     }
     
-    /**
-     * 测试方法：直接调用数据库结构捕获
-     */
-    public boolean testCaptureSchema(Long projectVersionId) {
-        log.info("开始测试数据库结构捕获，版本ID: {}", projectVersionId);
-        try {
-            // 获取项目版本信息
-            ProjectVersion projectVersion = projectVersionMapper.selectById(projectVersionId);
-            if (projectVersion == null) {
-                log.error("项目版本不存在: {}", projectVersionId);
-                return false;
-            }
-            
-            // 获取项目信息
-            Project project = projectMapper.selectById(projectVersion.getProjectId());
-            if (project == null) {
-                log.error("项目不存在: {}", projectVersion.getProjectId());
-                return false;
-            }
-            
-            // 获取数据源信息
-            Datasource datasource = datasourceMapper.selectById(project.getDatasourceId());
-            if (datasource == null) {
-                log.error("数据源不存在: {}", project.getDatasourceId());
-                return false;
-            }
-            
-            return captureAndSaveDatabaseSchema(projectVersionId, datasource, projectVersion.getUserId());
-        } catch (Exception e) {
-            log.error("测试数据库结构捕获失败: {}", e.getMessage(), e);
-            return false;
-        }
-    }
+
     
     @Override
     public List<VersionTableStructure> getVersionTableStructures(Long projectVersionId) {
@@ -1152,38 +1131,55 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
      */
     private void deleteExistingVersionData(Long projectVersionId) {
         try {
-            // 1. 删除版本数据库结构信息
-            QueryWrapper<VersionDatabaseSchema> databaseQueryWrapper = new QueryWrapper<>();
-            databaseQueryWrapper.eq("project_version_id", projectVersionId);
-            versionDatabaseSchemaMapper.delete(databaseQueryWrapper);
-            
-            // 2. 获取该版本的所有表结构ID
+            log.info("开始删除项目版本 {} 的已存在数据库结构信息", projectVersionId);
+
+            // 检查删除前的数据量
+            QueryWrapper<VersionTableStructure> checkWrapper = new QueryWrapper<>();
+            checkWrapper.eq("project_version_id", projectVersionId);
+            List<VersionTableStructure> existingTables = versionTableStructureMapper.selectList(checkWrapper);
+            log.info("删除前，项目版本 {} 有 {} 个表结构", projectVersionId, existingTables.size());
+
+            // 使用原生SQL强制删除，确保数据完全清理
+            // 1. 先删除字段和索引信息（通过JOIN删除）
+            int deletedColumns = versionTableColumnMapper.deleteByVersionId(projectVersionId);
+            log.info("删除了 {} 个表字段记录", deletedColumns);
+
+            int deletedIndexes = versionTableIndexMapper.deleteByVersionId(projectVersionId);
+            log.info("删除了 {} 个表索引记录", deletedIndexes);
+
+            // 2. 删除表结构信息
             QueryWrapper<VersionTableStructure> tableQueryWrapper = new QueryWrapper<>();
             tableQueryWrapper.eq("project_version_id", projectVersionId);
-            List<VersionTableStructure> tableStructures = versionTableStructureMapper.selectList(tableQueryWrapper);
-            
-            if (!tableStructures.isEmpty()) {
-                List<Long> tableIds = tableStructures.stream()
-                    .map(VersionTableStructure::getId)
-                    .collect(java.util.stream.Collectors.toList());
-                
-                // 3. 删除表字段信息
-                QueryWrapper<VersionTableColumn> columnQueryWrapper = new QueryWrapper<>();
-                columnQueryWrapper.in("version_table_id", tableIds);
-                versionTableColumnMapper.delete(columnQueryWrapper);
-                
-                // 4. 删除表索引信息
-                QueryWrapper<VersionTableIndex> indexQueryWrapper = new QueryWrapper<>();
-                indexQueryWrapper.in("version_table_id", tableIds);
-                versionTableIndexMapper.delete(indexQueryWrapper);
+            int deletedTables = versionTableStructureMapper.delete(tableQueryWrapper);
+            log.info("删除了 {} 个表结构记录", deletedTables);
+
+            // 3. 删除版本数据库结构信息
+            QueryWrapper<VersionDatabaseSchema> databaseQueryWrapper = new QueryWrapper<>();
+            databaseQueryWrapper.eq("project_version_id", projectVersionId);
+            int deletedDatabases = versionDatabaseSchemaMapper.delete(databaseQueryWrapper);
+            log.info("删除了 {} 个数据库结构记录", deletedDatabases);
+
+            // 4. 强制刷新事务，确保删除操作立即生效
+            try {
+                // 等待一小段时间确保删除操作完成
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-            
-            // 5. 删除表结构信息
-            versionTableStructureMapper.delete(tableQueryWrapper);
-            
-            log.info("已删除项目版本 {} 的已存在数据库结构信息", projectVersionId);
+
+            // 5. 再次检查是否还有残留数据
+            List<VersionTableStructure> remainingTables = versionTableStructureMapper.selectList(checkWrapper);
+            if (!remainingTables.isEmpty()) {
+                log.warn("删除后仍有 {} 个表结构记录残留，将强制删除", remainingTables.size());
+                for (VersionTableStructure table : remainingTables) {
+                    versionTableStructureMapper.deleteById(table.getId());
+                }
+            }
+
+            log.info("已完成删除项目版本 {} 的已存在数据库结构信息", projectVersionId);
         } catch (Exception e) {
-            log.warn("删除已存在版本数据时出现异常: {}", e.getMessage());
+            log.error("删除已存在版本数据时出现异常: {}", e.getMessage(), e);
+            throw new RuntimeException("删除已存在版本数据失败: " + e.getMessage(), e);
         }
     }
 }

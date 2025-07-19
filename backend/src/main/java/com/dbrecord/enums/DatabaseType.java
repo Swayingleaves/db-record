@@ -6,6 +6,7 @@ package com.dbrecord.enums;
 public enum DatabaseType {
     MYSQL("mysql", "MySQL数据库"),
     POSTGRESQL("postgresql", "PostgreSQL数据库"),
+    KINGBASE("kingbase", "人大金仓数据库"),
     ORACLE("oracle", "Oracle数据库"),
     SQLSERVER("sqlserver", "SQL Server数据库");
     

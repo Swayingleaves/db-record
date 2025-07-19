@@ -86,6 +86,14 @@
 			<groupId>org.aspectj</groupId>
 			<artifactId>aspectjweaver</artifactId>
 		</dependency>
+
+		<!-- KingbaseES JDBC 驱动 - 需要手动安装到本地仓库 -->
+		<dependency>
+            <groupId>cn.com.kingbase</groupId>
+            <artifactId>kingbase8</artifactId>
+			<version>8.6.0</version>
+        </dependency>
+		
 	</dependencies>
 
 	<build>

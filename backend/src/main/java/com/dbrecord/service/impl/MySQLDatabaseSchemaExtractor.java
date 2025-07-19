@@ -12,11 +12,16 @@ import java.util.Map;
  */
 @Component
 public class MySQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtractor {
-    
+
     @Override
     protected String buildConnectionUrl(Datasource datasource) {
         return String.format("jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC",
                 datasource.getHost(), datasource.getPort(), datasource.getDatabaseName());
+    }
+
+    @Override
+    protected String getDatabaseType() {
+        return "mysql";
     }
     
     @Override
@@ -35,8 +40,23 @@ public class MySQLDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtracto
     
     @Override
     public List<Map<String, Object>> getTablesStructure(Datasource datasource) {
+        var filterConfig = getFilterConfig();
+
+        // MySQL不使用schema概念，这里检查当前数据库是否在排除列表中
+        if (filterConfig.isSchemaExcluded(datasource.getDatabaseName())) {
+            return new java.util.ArrayList<>(); // 如果整个数据库被排除，返回空列表
+        }
+
         String sql = "SELECT * FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?";
-        return executeQuery(datasource, sql, datasource.getDatabaseName());
+        List<Map<String, Object>> tables = executeQuery(datasource, sql, datasource.getDatabaseName());
+
+        // 应用表级别的过滤（MySQL中schema就是数据库名）
+        return tables.stream()
+                .filter(table -> {
+                    String tableName = (String) table.get("TABLE_NAME");
+                    return !filterConfig.isTableExcluded(datasource.getDatabaseName(), tableName);
+                })
+                .collect(java.util.stream.Collectors.toList());
     }
     
     @Override

@@ -1,8 +1,10 @@
 package com.dbrecord.service.impl;
 
+import com.dbrecord.config.DatabaseScanFilterProperties;
 import com.dbrecord.entity.domain.Datasource;
 import com.dbrecord.service.DatabaseSchemaExtractor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -15,6 +17,9 @@ import java.util.Map;
  */
 @Slf4j
 public abstract class AbstractDatabaseSchemaExtractor implements DatabaseSchemaExtractor {
+
+    @Autowired
+    protected DatabaseScanFilterProperties filterProperties;
     
     @Override
     public Connection getConnection(Datasource datasource) throws Exception {
@@ -28,6 +33,23 @@ public abstract class AbstractDatabaseSchemaExtractor implements DatabaseSchemaE
      * @return 连接URL
      */
     protected abstract String buildConnectionUrl(Datasource datasource);
+
+    /**
+     * 获取数据库类型
+     * @return 数据库类型字符串
+     */
+    protected abstract String getDatabaseType();
+
+    /**
+     * 获取当前数据库的过滤配置
+     * @return 过滤配置
+     */
+    protected DatabaseScanFilterProperties.DatabaseFilterConfig getFilterConfig() {
+        if (filterProperties == null) {
+            return new DatabaseScanFilterProperties.DatabaseFilterConfig();
+        }
+        return filterProperties.getFilterConfig(getDatabaseType());
+    }
     
     /**
      * 执行查询并返回结果
