@@ -1,6 +1,11 @@
 -- 数据库初始化脚本
 -- 按照依赖关系顺序创建表
 
+create database if not exists db_record;
+
+use db_record;
+
+
 -- 用户表
 DROP TABLE IF EXISTS `user`;
 CREATE TABLE `user` (
@@ -88,6 +93,7 @@ CREATE TABLE `version_database_schema` (
   `database_name` VARCHAR(100) NOT NULL COMMENT '数据库名称',
   `charset` VARCHAR(50) COMMENT '字符集',
   `collation` VARCHAR(50) COMMENT '排序规则',
+  `schemas_info` JSON COMMENT 'Schema信息（PostgreSQL专用，存储所有schema的详细信息）',
   `snapshot_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '快照时间',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '创建用户ID',
   `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -113,9 +119,10 @@ CREATE TABLE `version_table_structure` (
   `data_length` BIGINT COMMENT '数据长度',
   `index_length` BIGINT COMMENT '索引长度',
   `auto_increment` BIGINT COMMENT '自增值',
+  `schema_name` VARCHAR(100) DEFAULT 'public' COMMENT 'Schema名称（PostgreSQL专用）',
   `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_version_table` (`project_version_id`, `table_name`),
+  UNIQUE KEY `uk_version_table_schema` (`project_version_id`, `schema_name`, `table_name`),
   KEY `idx_project_version` (`project_version_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='版本表结构表';
 
