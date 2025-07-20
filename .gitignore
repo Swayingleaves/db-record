@@ -37,3 +37,5 @@ build/
 **/.idea
 **/.trae/
 .augment/
+.claude/
+**/.vscode/
