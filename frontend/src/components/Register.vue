@@ -42,7 +42,7 @@ const handleRegister = async () => {
   loading.value = true;
   
   try {
-    await request.post('/api/register', { 
+    await request.post('/register', { 
       username: username.value, 
       password: password.value 
     });

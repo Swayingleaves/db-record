@@ -33,6 +33,8 @@ CREATE TABLE `datasource` (
   `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '状态(0禁用,1启用)',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '创建用户ID',
   `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
+  `description` TEXT COMMENT '数据源描述',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数据源表';
@@ -47,6 +49,7 @@ CREATE TABLE `project` (
   `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '状态(0禁用,1启用)',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '创建用户ID',
   `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_datasource_id` (`datasource_id`)
