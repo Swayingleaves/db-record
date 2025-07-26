@@ -1,10 +1,12 @@
 # Database Structure Change Recorder
 
-[中文版 (Chinese Version)](README_zh.md)
+[中文 (Chinese Version)](README_zh.md)
 
 This project records changes in database structures, including databases, tables, fields, indexes, and foreign keys.
 
 Through the web interface, you can create projects, execute SQL statements in the project console, record those statements, tag project versions, and view structural changes before each tag.
+
+![home](imgs/home.jpg)
 
 ## Project Structure
 - **frontend**
@@ -37,6 +39,16 @@ Through the web interface, you can create projects, execute SQL statements in th
     - Version deletion
     - Version comparison (shows structural changes between selected versions, exportable as SQL files)
 
+![dashboard](imgs/dashboard.jpg)
+
+![project](imgs/project.jpg)
+
+![projectVersion](imgs/projecVersion.jpg)
+
+![table](imgs/table.jpg)
+
+![version_compare](imgs/versionCompare.jpg)
+
 ### Datasource Management
 - Datasource list
 - Datasource details
@@ -45,6 +57,8 @@ Through the web interface, you can create projects, execute SQL statements in th
 - Datasource editing
 - Datasource testing
 - Datasource connection
+
+![datasource](imgs/datasource.jpg)
 
 #### Supported Datasources
 - MySQL (default)

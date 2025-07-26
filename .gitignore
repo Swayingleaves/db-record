@@ -42,3 +42,4 @@ build/
 .augment
 CLAUDE.md
 GEMINI.md
+.DS_Store
