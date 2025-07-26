@@ -1,16 +1,21 @@
 <template>
   <div class="home">
-    <h1>Welcome to DB-Record</h1>
-    <p>A database schema version control system</p>
+    <!-- 语言切换器 -->
+    <div class="language-switcher-container">
+      <LanguageSwitcher />
+    </div>
+    
+    <h1>{{ $t('auth.welcome') }}</h1>
+    <p>{{ $t('auth.description') }}</p>
     <div class="actions">
-      <router-link to="/login" class="btn btn-primary">Login</router-link>
-      <router-link to="/register" class="btn btn-secondary">Register</router-link>
+      <router-link to="/login" class="btn btn-primary">{{ $t('auth.login') }}</router-link>
+      <router-link to="/register" class="btn btn-secondary">{{ $t('auth.register') }}</router-link>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 组件逻辑
+import LanguageSwitcher from './LanguageSwitcher.vue';
 </script>
 
 <style scoped>
@@ -21,6 +26,13 @@
   justify-content: center;
   min-height: 100vh;
   text-align: center;
+  position: relative;
+}
+
+.language-switcher-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
 }
 
 .actions {
@@ -49,4 +61,4 @@
 .btn:hover {
   opacity: 0.8;
 }
-</style> 
+</style>

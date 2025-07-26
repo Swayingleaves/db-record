@@ -1,20 +1,20 @@
 <template>
   <div class="project-page">
     <div class="project-header">
-      <h3>项目管理</h3>
-      <button class="project-add-btn" @click="openAdd">新建项目</button>
+      <h3>{{ $t('project.title') }}</h3>
+      <button class="project-add-btn" @click="openAdd">{{ $t('project.create') }}</button>
     </div>
     
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading">加载中...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     
     <table v-else class="project-table">
       <thead>
         <tr>
-          <th>项目名称</th>
-          <th>描述</th>
-          <th>创建时间</th>
-          <th>操作</th>
+          <th>{{ $t('project.name') }}</th>
+          <th>{{ $t('project.description') }}</th>
+          <th>{{ $t('project.createTime') }}</th>
+          <th>{{ $t('common.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -23,13 +23,13 @@
           <td>{{ proj.description }}</td>
           <td>{{ formatDate(proj.createTime) }}</td>
           <td>
-            <button class="project-op" @click="viewDetail(proj)">详情</button>
-            <button class="project-op" @click="editProject(proj)">编辑</button>
-            <button class="project-op" @click="confirmDelete(proj)">删除</button>
+            <button class="project-op" @click="viewDetail(proj)">{{ $t('common.detail') }}</button>
+            <button class="project-op" @click="editProject(proj)">{{ $t('common.edit') }}</button>
+            <button class="project-op" @click="confirmDelete(proj)">{{ $t('common.delete') }}</button>
           </td>
         </tr>
         <tr v-if="!projects.length">
-          <td colspan="4" style="text-align:center;color:#aaa;">暂无项目</td>
+          <td colspan="4" style="text-align:center;color:#aaa;">{{ $t('project.noData') }}</td>
         </tr>
       </tbody>
     </table>
@@ -37,20 +37,20 @@
     <!-- 新建/编辑弹窗 -->
     <div v-if="showForm" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>{{ formMode==='add' ? '新建项目' : '编辑项目' }}</h4>
+        <h4>{{ formMode==='add' ? $t('project.create') : $t('project.edit') }}</h4>
         <form @submit.prevent="submitForm">
           <div class="form-row">
-            <label>项目名称</label>
+            <label>{{ $t('project.name') }}</label>
             <input v-model="form.name" required />
           </div>
           <div class="form-row">
-            <label>描述</label>
+            <label>{{ $t('project.description') }}</label>
             <input v-model="form.description" />
           </div>
           <div class="form-row">
-            <label>数据源</label>
+            <label>{{ $t('datasource.title') }}</label>
             <select v-model="form.datasourceId">
-              <option value="">请选择数据源（可选）</option>
+              <option value="">{{ $t('project.selectDatasource') }}</option>
               <option v-for="ds in datasources" :key="ds.id" :value="ds.id">
                 {{ ds.name }}
               </option>
@@ -58,9 +58,9 @@
           </div>
           <div class="form-row">
             <button class="project-save-btn" type="submit" :disabled="submitting">
-              {{ submitting ? '保存中...' : '保存' }}
+              {{ submitting ? $t('common.saving') : $t('common.save') }}
             </button>
-            <button class="project-cancel-btn" type="button" @click="closeForm">取消</button>
+            <button class="project-cancel-btn" type="button" @click="closeForm">{{ $t('common.cancel') }}</button>
           </div>
         </form>
       </div>
@@ -69,12 +69,12 @@
     <!-- 删除项目弹窗 -->
     <div v-if="showDelete" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>确认删除？</h4>
-        <p>确定要删除项目 <b>{{ delTarget?.name }}</b> 吗？</p>
+        <h4>{{ $t('common.confirmDelete') }}</h4>
+        <p>{{ $t('project.deleteConfirm', { name: delTarget?.name }) }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="showDelete=false">取消</button>
+          <button class="project-cancel-btn" @click="showDelete=false">{{ $t('common.cancel') }}</button>
           <button class="project-del-btn" @click="deleteProject" :disabled="deleting">
-            {{ deleting ? '删除中...' : '删除' }}
+            {{ deleting ? $t('common.deleting') : $t('common.delete') }}
           </button>
         </div>
       </div>

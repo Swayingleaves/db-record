@@ -2,20 +2,20 @@
   <div class="project-detail-page">
     <!-- 导航路径 -->
     <div class="breadcrumb">
-      <router-link to="/dashboard/project" class="breadcrumb-link">项目管理</router-link>
+      <router-link to="/dashboard/project" class="breadcrumb-link">{{ $t('project.title') }}</router-link>
       <span class="breadcrumb-separator">></span>
-      <span class="breadcrumb-current">{{ project?.name || '项目详情' }}</span>
+      <span class="breadcrumb-current">{{ project?.name || $t('project.detail') }}</span>
     </div>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
-      <p>加载中...</p>
+      <p>{{ $t('common.loading') }}</p>
     </div>
 
     <!-- 错误提示 -->
     <div v-if="error" class="error-message">
       <p>{{ error }}</p>
-      <button @click="loadProjectDetail">重试</button>
+      <button @click="loadProjectDetail">{{ $t('common.retry') }}</button>
     </div>
 
     <!-- 项目内容 -->
@@ -23,20 +23,20 @@
     <!-- 项目基本信息 -->
     <div class="project-info-card">
       <div class="card-header">
-        <h3>项目信息</h3>
-        <button class="edit-btn" @click="editProject">编辑项目</button>
+        <h3>{{ $t('project.info') }}</h3>
+        <button class="edit-btn" @click="editProject">{{ $t('project.edit') }}</button>
       </div>
       <div class="project-info">
         <div class="info-item">
-          <label>项目名称：</label>
+          <label>{{ $t('project.name') }}：</label>
           <span>{{ project?.name }}</span>
         </div>
         <div class="info-item">
-          <label>项目描述：</label>
-            <span>{{ project?.description || '暂无描述' }}</span>
+          <label>{{ $t('project.description') }}：</label>
+            <span>{{ project?.description || $t('project.noDescription') }}</span>
         </div>
         <div class="info-item">
-          <label>创建时间：</label>
+          <label>{{ $t('project.createTime') }}：</label>
             <span>{{ formatDate(project?.createTime) }}</span>
         </div>
       </div>
@@ -45,38 +45,38 @@
     <!-- 数据源管理 -->
     <div class="datasource-section">
       <div class="datasource-header">
-        <h3>数据源管理</h3>
-          <button class="datasource-add-btn" @click="openBindDataSource">绑定数据源</button>
+        <h3>{{ $t('datasource.title') }}</h3>
+          <button class="datasource-add-btn" @click="openBindDataSource">{{ $t('datasource.bind') }}</button>
       </div>
         <div class="datasource-content">
           <div v-if="currentDatasource" class="datasource-info">
             <div class="info-item">
-              <label>名称：</label>
+              <label>{{ $t('datasource.name') }}：</label>
               <span>{{ currentDatasource.name }}</span>
             </div>
             <div class="info-item">
-              <label>类型：</label>
+              <label>{{ $t('datasource.type') }}：</label>
               <span>{{ currentDatasource.type }}</span>
             </div>
             <div class="info-item">
-              <label>地址：</label>
+              <label>{{ $t('datasource.host') }}：</label>
               <span>{{ currentDatasource.host }}:{{ currentDatasource.port }}</span>
             </div>
             <div class="info-item">
-              <label>数据库：</label>
+              <label>{{ $t('datasource.database') }}：</label>
               <span>{{ currentDatasource.databaseName }}</span>
             </div>
             <div class="info-item">
-              <label>用户名：</label>
+              <label>{{ $t('datasource.username') }}：</label>
               <span>{{ currentDatasource.username }}</span>
             </div>
             <div class="datasource-actions">
-              <button class="datasource-op" @click="testDataSourceConnection">测试连接</button>
-              <button class="datasource-op" @click="unbindDataSource">解绑</button>
+              <button class="datasource-op" @click="testDataSourceConnection">{{ $t('datasource.test') }}</button>
+              <button class="datasource-op" @click="unbindDataSource">{{ $t('datasource.unbind') }}</button>
             </div>
           </div>
           <div v-else class="no-datasource">
-            <p>暂未绑定数据源</p>
+            <p>{{ $t('datasource.notBound') }}</p>
           </div>
         </div>
     </div>
@@ -84,33 +84,33 @@
     <!-- 版本管理 -->
     <div class="version-section">
       <div class="version-header">
-        <h3>版本管理</h3>
-        <button class="version-add-btn" @click="openAddVersion">新建版本</button>
+        <h3>{{ $t('version.title') }}</h3>
+        <button class="version-add-btn" @click="openAddVersion">{{ $t('version.create') }}</button>
       </div>
       <table class="version-table">
         <thead>
           <tr>
-            <th>版本号</th>
-            <th>描述</th>
-            <th>创建时间</th>
-            <th>操作</th>
+            <th>{{ $t('version.name') }}</th>
+            <th>{{ $t('version.description') }}</th>
+            <th>{{ $t('version.createTime') }}</th>
+            <th>{{ $t('common.actions') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="ver in versions" :key="ver.id">
               <td>{{ ver.versionName }}</td>
-              <td>{{ ver.description || '暂无描述' }}</td>
+              <td>{{ ver.description || $t('version.noDescription') }}</td>
               <td>{{ formatDate(ver.createTime) }}</td>
             <td>
-              <button class="version-op" @click="viewVersion(ver)">详情</button>
-              <button class="version-op" @click="editVersion(ver)">编辑</button>
-              <button class="version-op" @click="confirmDeleteVersion(ver)">删除</button>
-              <button class="version-op" @click="openCompare(ver)">对比</button>
-              <button class="version-op" @click="exportSql(ver)">导出SQL</button>
+              <button class="version-op" @click="viewVersion(ver)">{{ $t('version.detail') }}</button>
+              <button class="version-op" @click="editVersion(ver)">{{ $t('version.edit') }}</button>
+              <button class="version-op" @click="confirmDeleteVersion(ver)">{{ $t('version.delete') }}</button>
+              <button class="version-op" @click="openCompare(ver)">{{ $t('version.compare') }}</button>
+              <button class="version-op" @click="exportSql(ver)">{{ $t('version.export') }}</button>
             </td>
           </tr>
           <tr v-if="!versions.length">
-            <td colspan="4" style="text-align:center;color:#aaa;">暂无版本</td>
+            <td colspan="4" style="text-align:center;color:#aaa;">{{ $t('version.noData') }}</td>
           </tr>
         </tbody>
       </table>
@@ -120,21 +120,21 @@
     <!-- 编辑项目弹窗 -->
     <div v-if="showEditForm" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>编辑项目</h4>
+        <h4>{{ $t('project.edit') }}</h4>
         <form @submit.prevent="submitEditForm">
           <div class="form-row">
-            <label>项目名称</label>
+            <label>{{ $t('project.name') }}</label>
             <input v-model="editForm.name" required />
           </div>
           <div class="form-row">
-            <label>描述</label>
+            <label>{{ $t('project.description') }}</label>
             <input v-model="editForm.description" />
           </div>
           <div class="form-row">
             <button class="project-save-btn" type="submit" :disabled="editFormLoading">
-              {{ editFormLoading ? '保存中...' : '保存' }}
+              {{ editFormLoading ? $t('common.saving') : $t('common.save') }}
             </button>
-            <button class="project-cancel-btn" type="button" @click="closeEditForm">取消</button>
+            <button class="project-cancel-btn" type="button" @click="closeEditForm">{{ $t('common.cancel') }}</button>
           </div>
         </form>
       </div>
@@ -143,24 +143,24 @@
     <!-- 新建/编辑/详情版本弹窗 -->
     <div v-if="showVersionForm" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>{{ versionFormMode==='add' ? '新建版本' : (versionFormMode==='edit' ? '编辑版本' : '版本详情') }}</h4>
+        <h4>{{ versionFormMode==='add' ? $t('version.create') : (versionFormMode==='edit' ? $t('version.edit') : $t('version.detail')) }}</h4>
         <form @submit.prevent="submitVersionForm">
           <div class="form-row">
-            <label>版本号</label>
+            <label>{{ $t('version.name') }}</label>
             <input v-model="versionForm.versionName" :readonly="versionFormMode==='detail'" required />
           </div>
           <div class="form-row">
-            <label>描述</label>
+            <label>{{ $t('version.description') }}</label>
             <input v-model="versionForm.description" :readonly="versionFormMode==='detail'" />
           </div>
           <div class="form-row" v-if="versionFormMode!=='detail'">
             <button class="version-save-btn" type="submit" :disabled="versionFormLoading">
-              {{ versionFormLoading ? '保存中...' : '保存' }}
+              {{ versionFormLoading ? $t('common.saving') : $t('common.save') }}
             </button>
-            <button class="version-cancel-btn" type="button" @click="closeVersionForm">取消</button>
+            <button class="version-cancel-btn" type="button" @click="closeVersionForm">{{ $t('common.cancel') }}</button>
           </div>
           <div class="form-row" v-else>
-            <button class="version-cancel-btn" type="button" @click="closeVersionForm">关闭</button>
+            <button class="version-cancel-btn" type="button" @click="closeVersionForm">{{ $t('common.close') }}</button>
           </div>
         </form>
       </div>
@@ -169,12 +169,12 @@
     <!-- 删除版本确认弹窗 -->
     <div v-if="showDelete" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>确认删除？</h4>
-        <p>确定要删除版本 <b>{{ delTarget?.versionName }}</b> 吗？</p>
+        <h4>{{ $t('version.confirmDelete') }}</h4>
+        <p>{{ $t('version.confirmDeleteMessage', { name: delTarget?.versionName }) }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="showDelete=false">取消</button>
+          <button class="project-cancel-btn" @click="showDelete=false">{{ $t('common.cancel') }}</button>
           <button class="project-del-btn" @click="deleteVersion" :disabled="deleteLoading">
-            {{ deleteLoading ? '删除中...' : '删除' }}
+            {{ deleteLoading ? $t('common.deleting') : $t('common.delete') }}
           </button>
         </div>
       </div>
@@ -185,18 +185,18 @@
     <!-- 绑定数据源弹窗 -->
     <div v-if="showBindDataSource" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>绑定数据源</h4>
+        <h4>{{ $t('datasource.bind') }}</h4>
           <div class="form-row">
-            <label>选择数据源</label>
+            <label>{{ $t('datasource.select') }}</label>
             <select v-model="selectedDataSourceId">
-              <option value="">请选择数据源</option>
+              <option value="">{{ $t('datasource.pleaseSelect') }}</option>
               <option v-for="ds in availableDataSources" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.type }})</option>
             </select>
           </div>
           <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="closeBindDataSource">取消</button>
+          <button class="project-cancel-btn" @click="closeBindDataSource">{{ $t('common.cancel') }}</button>
           <button class="project-save-btn" @click="bindDataSource" :disabled="!selectedDataSourceId || bindLoading">
-            {{ bindLoading ? '绑定中...' : '绑定' }}
+            {{ bindLoading ? $t('datasource.binding') : $t('datasource.bind') }}
           </button>
         </div>
       </div>
@@ -205,10 +205,10 @@
     <!-- 测试连接结果弹窗 -->
     <div v-if="showTestResult" class="project-dialog-mask">
       <div class="project-dialog">
-        <h4>连接测试结果</h4>
+        <h4>{{ $t('datasource.testResult') }}</h4>
         <p>{{ testResultMessage }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="project-cancel-btn" @click="showTestResult=false">关闭</button>
+          <button class="project-cancel-btn" @click="showTestResult=false">{{ $t('common.close') }}</button>
         </div>
       </div>
     </div>
@@ -223,11 +223,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import request from '../utils/request';
 import type { Project, ProjectVersion, Datasource } from '../types/api';
 
 const route = useRoute();
 const router = useRouter();
+const { t } = useI18n();
 
 // 基础数据
 const project = ref<Project | null>(null);
@@ -297,7 +299,7 @@ async function loadProjectDetail() {
     availableDataSources.value = datasourcesResponse.data.data;
     
   } catch (err: any) {
-    error.value = err.message || '加载项目详情失败';
+    error.value = err.message || t('project.loadFailed');
   } finally {
     loading.value = false;
   }
@@ -337,9 +339,9 @@ async function submitEditForm() {
       project.value = { ...project.value, ...editForm.value } as Project;
     }
   showEditForm.value = false;
-    showToast('项目更新成功');
+    showToast(t('project.updateSuccess'));
   } catch (err: any) {
-    showToast(err.message || '项目更新失败', 'error');
+    showToast(err.message || t('project.updateFailed'), 'error');
   } finally {
     editFormLoading.value = false;
   }
@@ -379,19 +381,19 @@ async function submitVersionForm() {
   if (versionFormMode.value === 'add') {
       const response = await request.post('/api/project-version/create', versionForm.value);
       versions.value.unshift(response.data.data);
-      showToast('版本创建成功');
+      showToast(t('version.createSuccess'));
   } else if (versionFormMode.value === 'edit') {
       await request.put('/api/project-version/update', versionForm.value);
       const index = versions.value.findIndex(v => v.id === versionForm.value.id);
       if (index > -1) {
         versions.value[index] = { ...versions.value[index], ...versionForm.value };
   }
-      showToast('版本更新成功');
+      showToast(t('version.updateSuccess'));
     }
     
   showVersionForm.value = false;
   } catch (err: any) {
-    showToast(err.message || '操作失败', 'error');
+    showToast(err.message || t('common.operationFailed'), 'error');
   } finally {
     versionFormLoading.value = false;
   }
@@ -410,9 +412,9 @@ async function deleteVersion() {
     await request.delete(`/api/project-version/delete/${delTarget.value.id}`);
     versions.value = versions.value.filter(v => v.id !== delTarget.value?.id);
   showDelete.value = false;
-    showToast('版本删除成功');
+    showToast(t('version.deleteSuccess'));
   } catch (err: any) {
-    showToast(err.message || '删除失败', 'error');
+    showToast(err.message || t('version.deleteFailed'), 'error');
   } finally {
     deleteLoading.value = false;
   }
@@ -437,9 +439,9 @@ async function exportSql(ver: ProjectVersion) {
     a.download = `${ver.versionName}.sql`;
     a.click();
     window.URL.revokeObjectURL(url);
-    showToast('SQL导出成功');
+    showToast(t('version.exportSuccess'));
   } catch (err: any) {
-    showToast(err.message || '导出失败', 'error');
+    showToast(err.message || t('version.exportFailed'), 'error');
   }
 }
 
@@ -467,9 +469,9 @@ async function bindDataSource() {
     // 重新加载项目详情
     await loadProjectDetail();
     showBindDataSource.value = false;
-    showToast('数据源绑定成功');
+    showToast(t('datasource.bindSuccess'));
   } catch (err: any) {
-    showToast(err.message || '绑定失败', 'error');
+    showToast(err.message || t('datasource.bindFailed'), 'error');
   } finally {
     bindLoading.value = false;
 }
@@ -482,9 +484,9 @@ async function unbindDataSource() {
     await request.post(`/api/project/unbind-datasource/${project.value.id}`);
     currentDatasource.value = null;
     project.value.datasourceId = undefined;
-    showToast('数据源解绑成功');
+    showToast(t('datasource.unbindSuccess'));
   } catch (err: any) {
-    showToast(err.message || '解绑失败', 'error');
+    showToast(err.message || t('datasource.unbindFailed'), 'error');
 }
 }
 
@@ -492,13 +494,13 @@ async function testDataSourceConnection() {
   if (!currentDatasource.value) return;
   
   try {
-    testResultMessage.value = '正在测试连接...';
+    testResultMessage.value = t('datasource.testing');
     showTestResult.value = true;
     
     const response = await request.post('/api/datasource/test-connection', currentDatasource.value);
-    testResultMessage.value = response.data.data ? '连接成功！' : '连接失败，请检查配置';
+    testResultMessage.value = response.data.data ? t('datasource.testSuccess') : t('datasource.testFailed');
   } catch (err: any) {
-    testResultMessage.value = '连接失败：' + (err.message || '未知错误');
+    testResultMessage.value = t('datasource.testError') + ': ' + (err.message || t('common.unknownError'));
   }
 }
 </script>

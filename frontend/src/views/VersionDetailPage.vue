@@ -2,22 +2,22 @@
   <div class="version-detail-page">
     <!-- 导航路径 -->
     <div class="breadcrumb">
-      <router-link to="/dashboard/project" class="breadcrumb-link">项目管理</router-link>
+      <router-link to="/dashboard/project" class="breadcrumb-link">{{ t('project.title') }}</router-link>
       <span class="breadcrumb-separator">></span>
       <router-link :to="`/dashboard/project/${projectId}`" class="breadcrumb-link">{{ projectName }}</router-link>
       <span class="breadcrumb-separator">></span>
-      <span class="breadcrumb-current">版本详情 - {{ version?.versionName }}</span>
+      <span class="breadcrumb-current">{{ t('version.detail') }} - {{ version?.versionName }}</span>
     </div>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
-      <p>加载中...</p>
+      <p>{{ t('common.loading') }}</p>
     </div>
 
     <!-- 错误提示 -->
     <div v-if="error" class="error-message">
       <p>{{ error }}</p>
-      <button @click="loadVersionDetail">重试</button>
+      <button @click="loadVersionDetail">{{ t('common.retry') }}</button>
     </div>
 
     <!-- 版本内容 -->
@@ -25,19 +25,19 @@
       <!-- 版本基本信息 -->
       <div class="version-info-card">
         <div class="card-header">
-          <h3>版本信息</h3>
+          <h3>{{ t('version.info') }}</h3>
         </div>
         <div class="version-info">
           <div class="info-item">
-            <label>版本号：</label>
+            <label>{{ t('version.versionNumber') }}：</label>
             <span>{{ version?.versionName }}</span>
           </div>
           <div class="info-item">
-            <label>描述：</label>
-            <span>{{ version?.description || '暂无描述' }}</span>
+            <label>{{ t('version.description') }}：</label>
+            <span>{{ version?.description || t('version.noDescription') }}</span>
           </div>
           <div class="info-item">
-            <label>创建时间：</label>
+            <label>{{ t('version.createTime') }}：</label>
             <span>{{ formatDate(version?.createTime) }}</span>
           </div>
         </div>
@@ -46,39 +46,39 @@
       <!-- 数据库结构信息 -->
       <div class="database-structure-card">
         <div class="card-header">
-          <h3>数据库结构</h3>
+          <h3>{{ t('database.structure') }}</h3>
         </div>
         
         <!-- 数据库基本信息 -->
         <div v-if="databaseSchema" class="database-info">
-          <h4>数据库信息</h4>
+          <h4>{{ t('database.info') }}</h4>
           <div class="info-grid">
             <div class="info-item">
-              <label>数据库名：</label>
+              <label>{{ t('database.name') }}：</label>
               <span>{{ databaseSchema.databaseName }}</span>
             </div>
             <div class="info-item">
-              <label>字符集：</label>
+              <label>{{ t('database.charset') }}：</label>
               <span>{{ databaseSchema.charset }}</span>
             </div>
             <div class="info-item">
-              <label>排序规则：</label>
+              <label>{{ t('database.collation') }}：</label>
               <span>{{ databaseSchema.collation }}</span>
             </div>
             <div class="info-item">
-              <label>快照时间：</label>
+              <label>{{ t('database.snapshotTime') }}：</label>
               <span>{{ formatDate(databaseSchema.snapshotTime) }}</span>
             </div>
           </div>
           
           <!-- PostgreSQL/KingbaseES Schema信息 -->
           <div v-if="schemasInfo && schemasInfo.length > 0" class="schemas-section">
-            <h4>Schema信息 ({{ schemasInfo.length }}个Schema)</h4>
+            <h4>{{ t('database.schemaInfo') }} ({{ schemasInfo.length }}{{ t('database.schemaCount') }})</h4>
             <div class="schemas-container">
               <div v-for="schema in schemasInfo" :key="schema.schema_name" class="schema-card">
                 <div class="schema-info">
                   <span class="schema-name">{{ schema.schema_name }}</span>
-                  <span class="schema-owner" v-if="schema.schema_owner">所有者: {{ schema.schema_owner }}</span>
+                  <span class="schema-owner" v-if="schema.schema_owner">{{ t('database.owner') }}: {{ schema.schema_owner }}</span>
                 </div>
               </div>
             </div>
@@ -87,7 +87,7 @@
 
         <!-- 表结构信息 -->
         <div v-if="tables.length > 0" class="tables-section">
-          <h4>表结构 ({{ tables.length }}个表)</h4>
+          <h4>{{ t('database.tableStructure') }} ({{ tables.length }}{{ t('database.tableCount') }})</h4>
 
           <!-- PostgreSQL/KingbaseES 分层显示 -->
           <div v-if="isSchemaBasedDatabase && schemaGroups" class="schemas-tables-container">
@@ -96,7 +96,7 @@
                 <h5>
                   <span class="toggle-icon" :class="{ 'expanded': isSchemaExpanded(String(schemaName)) }">▼</span>
                   <span class="schema-icon">📁</span>
-                  Schema: {{ schemaName }} ({{ schemaTables.length }}个表)
+                  Schema: {{ schemaName }} ({{ schemaTables.length }}{{ t('database.tableCount') }})
                 </h5>
               </div>
 
@@ -118,37 +118,37 @@
                     <span>{{ table.schemaName }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">表类型：</span>
+                    <span class="label">{{ t('table.type') }}：</span>
                     <span>{{ table.tableType }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">存储引擎：</span>
+                    <span class="label">{{ t('table.engine') }}：</span>
                     <span>{{ table.engine }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">字符集：</span>
+                    <span class="label">{{ t('table.charset') }}：</span>
                     <span>{{ table.charset }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">排序规则：</span>
+                    <span class="label">{{ t('table.collation') }}：</span>
                     <span>{{ table.collation }}</span>
                   </div>
                 </div>
 
                 <!-- 字段信息 -->
                 <div class="columns-section">
-                  <h6>字段信息 ({{ table.columns?.length || 0 }} 个字段)</h6>
+                  <h6>{{ t('table.columnInfo') }} ({{ table.columns?.length || 0 }} {{ t('table.columnCount') }})</h6>
                   <table class="columns-table">
                     <thead>
                       <tr>
-                        <th>字段名</th>
-                        <th>数据类型</th>
-                        <th>长度</th>
-                        <th>允许空值</th>
-                        <th>键类型</th>
-                        <th>默认值</th>
-                        <th>额外信息</th>
-                        <th>注释</th>
+                        <th>{{ t('table.columnName') }}</th>
+                        <th>{{ t('table.dataType') }}</th>
+                        <th>{{ t('table.length') }}</th>
+                        <th>{{ t('table.nullable') }}</th>
+                        <th>{{ t('table.keyType') }}</th>
+                        <th>{{ t('table.defaultValue') }}</th>
+                        <th>{{ t('table.extra') }}</th>
+                        <th>{{ t('table.comment') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -158,7 +158,7 @@
                         <td>{{ column.characterMaximumLength || '-' }}</td>
                         <td>
                           <span class="nullable" :class="column.isNullable === 'YES' ? 'yes' : 'no'">
-                            {{ column.isNullable === 'YES' ? '是' : '否' }}
+                            {{ column.isNullable === 'YES' ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>
@@ -176,16 +176,16 @@
 
                 <!-- 索引信息 -->
                 <div v-if="table.indexes && table.indexes.length > 0" class="indexes-section">
-                  <h6>索引信息 ({{ table.indexes?.length || 0 }} 个索引)</h6>
+                  <h6>{{ t('table.indexInfo') }} ({{ table.indexes?.length || 0 }} {{ t('table.indexCount') }})</h6>
                   <table class="indexes-table">
                     <thead>
                       <tr>
-                        <th>索引名</th>
-                        <th>索引类型</th>
-                        <th>是否唯一</th>
-                        <th>是否主键</th>
-                        <th>关联列</th>
-                        <th>注释</th>
+                        <th>{{ t('table.indexName') }}</th>
+                        <th>{{ t('table.indexType') }}</th>
+                        <th>{{ t('table.isUnique') }}</th>
+                        <th>{{ t('table.isPrimary') }}</th>
+                        <th>{{ t('table.relatedColumns') }}</th>
+                        <th>{{ t('table.comment') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -194,12 +194,12 @@
                         <td>{{ index.indexType }}</td>
                         <td>
                           <span class="unique" :class="index.isUnique ? 'yes' : 'no'">
-                            {{ index.isUnique ? '是' : '否' }}
+                            {{ index.isUnique ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>
                           <span class="primary" :class="index.isPrimary ? 'yes' : 'no'">
-                            {{ index.isPrimary ? '是' : '否' }}
+                            {{ index.isPrimary ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>{{ index.columnNames }}</td>
@@ -233,37 +233,37 @@
                     <span>{{ table.schemaName }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">表类型：</span>
+                    <span class="label">{{ t('table.type') }}：</span>
                     <span>{{ table.tableType }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">存储引擎：</span>
+                    <span class="label">{{ t('table.engine') }}：</span>
                     <span>{{ table.engine }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">字符集：</span>
+                    <span class="label">{{ t('table.charset') }}：</span>
                     <span>{{ table.charset }}</span>
                   </div>
                   <div class="info-row">
-                    <span class="label">排序规则：</span>
+                    <span class="label">{{ t('table.collation') }}：</span>
                     <span>{{ table.collation }}</span>
                   </div>
                 </div>
 
                 <!-- 字段信息 -->
                 <div class="columns-section">
-                  <h6>字段信息 ({{ table.columns?.length || 0 }} 个字段)</h6>
+                  <h6>{{ t('table.columnInfo') }} ({{ table.columns?.length || 0 }} {{ t('table.columnCount') }})</h6>
                   <table class="columns-table">
                     <thead>
                       <tr>
-                        <th>字段名</th>
-                        <th>数据类型</th>
-                        <th>长度</th>
-                        <th>允许空值</th>
-                        <th>键类型</th>
-                        <th>默认值</th>
-                        <th>额外信息</th>
-                        <th>注释</th>
+                        <th>{{ t('table.columnName') }}</th>
+                        <th>{{ t('table.dataType') }}</th>
+                        <th>{{ t('table.length') }}</th>
+                        <th>{{ t('table.nullable') }}</th>
+                        <th>{{ t('table.keyType') }}</th>
+                        <th>{{ t('table.defaultValue') }}</th>
+                        <th>{{ t('table.extra') }}</th>
+                        <th>{{ t('table.comment') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -273,7 +273,7 @@
                         <td>{{ column.characterMaximumLength || '-' }}</td>
                         <td>
                           <span class="nullable" :class="column.isNullable === 'YES' ? 'yes' : 'no'">
-                            {{ column.isNullable === 'YES' ? '是' : '否' }}
+                            {{ column.isNullable === 'YES' ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>
@@ -291,16 +291,16 @@
 
                 <!-- 索引信息 -->
                 <div class="indexes-section">
-                  <h6>索引信息 ({{ table.indexes?.length || 0 }} 个索引)</h6>
+                  <h6>{{ t('table.indexInfo') }} ({{ table.indexes?.length || 0 }} {{ t('table.indexCount') }})</h6>
                   <table class="indexes-table">
                     <thead>
                       <tr>
-                        <th>索引名</th>
-                        <th>索引类型</th>
-                        <th>唯一性</th>
-                        <th>主键</th>
-                        <th>字段</th>
-                        <th>注释</th>
+                        <th>{{ t('table.indexName') }}</th>
+                        <th>{{ t('table.indexType') }}</th>
+                        <th>{{ t('table.uniqueness') }}</th>
+                        <th>{{ t('table.primaryKey') }}</th>
+                        <th>{{ t('table.fields') }}</th>
+                        <th>{{ t('table.comment') }}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -309,12 +309,12 @@
                         <td>{{ index.indexType }}</td>
                         <td>
                           <span class="unique" :class="index.isUnique ? 'yes' : 'no'">
-                            {{ index.isUnique ? '是' : '否' }}
+                            {{ index.isUnique ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>
                           <span class="primary" :class="index.isPrimary ? 'yes' : 'no'">
-                            {{ index.isPrimary ? '是' : '否' }}
+                            {{ index.isPrimary ? t('common.yes') : t('common.no') }}
                           </span>
                         </td>
                         <td>{{ index.columnNames }}</td>
@@ -330,7 +330,7 @@
 
         <!-- 无数据提示 -->
         <div v-if="!databaseSchema && tables.length === 0" class="no-data">
-          <p>该版本暂无数据库结构信息</p>
+          <p>{{ t('version.noStructureInfo') }}</p>
         </div>
       </div>
     </div>
@@ -345,8 +345,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import request from '../utils/request';
 import type { ProjectVersion } from '../types/api';
+
+const { t } = useI18n();
 
 interface DatabaseSchema {
   id: number;
@@ -537,9 +540,9 @@ function toggleTable(tableId: number) {
 // 获取键类型文本
 function getKeyTypeText(keyType: string): string {
   switch (keyType) {
-    case 'PRI': return '主键';
-    case 'UNI': return '唯一';
-    case 'MUL': return '索引';
+    case 'PRI': return t('table.primaryKeyShort');
+    case 'UNI': return t('table.uniqueShort');
+    case 'MUL': return t('table.indexShort');
     default: return keyType;
   }
 }

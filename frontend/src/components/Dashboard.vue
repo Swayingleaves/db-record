@@ -1,13 +1,16 @@
 <template>
   <div class="dashboard">
     <div class="dashboard-header">
-      <h1>DB-RECORD</h1>
-      <div class="user-info">
+      <h1>DB-Record</h1>
+      <div class="header-right">
+        <LanguageSwitcher />
+        <div class="user-info">
           <span class="username">{{ username }}</span>
-        <div class="dropdown" @click="dropdown = !dropdown">
-          <span>▼</span>
-          <div v-if="dropdown" class="dropdown-menu">
-            <a @click="logout">退出登录</a>
+          <div class="dropdown" @click="toggleDropdown">
+            ▼
+            <div v-if="showDropdown" class="dropdown-menu">
+              <a @click="logout">{{ $t('nav.logout') }}</a>
+            </div>
           </div>
         </div>
       </div>
@@ -17,10 +20,10 @@
       <div class="sidebar">
         <nav class="nav-menu">
           <router-link to="/dashboard/project" class="nav-item" active-class="active">
-            项目管理
+            {{ $t('nav.project') }}
           </router-link>
           <router-link to="/dashboard/datasource" class="nav-item" active-class="active">
-            数据源管理
+            {{ $t('nav.datasource') }}
           </router-link>
         </nav>
         </div>
@@ -35,19 +38,23 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import LanguageSwitcher from './LanguageSwitcher.vue';
 
 const router = useRouter();
-const dropdown = ref(false);
+const showDropdown = ref(false);
 const username = ref('');
 
 onMounted(() => {
-  username.value = localStorage.getItem('username') || '用户';
+  username.value = localStorage.getItem('username') || 'User';
 });
+
+function toggleDropdown() {
+  showDropdown.value = !showDropdown.value;
+}
 
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('username');
-  localStorage.removeItem('role');
   router.push('/login');
 }
 </script>
@@ -74,6 +81,12 @@ function logout() {
   margin: 0;
   font-size: 1.5rem;
   font-weight: bold;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .user-info {
@@ -159,4 +172,4 @@ function logout() {
   overflow-y: auto;
   background: #f8f9fa;
 }
-</style> 
+</style>

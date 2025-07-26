@@ -1,21 +1,21 @@
 <template>
   <div class="ds-page">
     <div class="ds-header">
-      <h3>数据源管理</h3>
-      <button class="ds-add-btn" @click="openAdd">新建数据源</button>
+      <h3>{{ $t('datasource.title') }}</h3>
+      <button class="ds-add-btn" @click="openAdd">{{ $t('datasource.create') }}</button>
     </div>
     
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading">加载中...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     
     <table v-else class="ds-table">
       <thead>
         <tr>
-          <th>名称</th>
-          <th>类型</th>
-          <th>地址</th>
-          <th>用户名</th>
-          <th>操作</th>
+          <th>{{ $t('datasource.name') }}</th>
+          <th>{{ $t('datasource.type') }}</th>
+          <th>{{ $t('datasource.host') }}</th>
+          <th>{{ $t('datasource.username') }}</th>
+          <th>{{ $t('common.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -25,14 +25,14 @@
           <td>{{ ds.host }}:{{ ds.port }}/{{ ds.databaseName }}</td>
           <td>{{ ds.username }}</td>
           <td>
-            <button class="ds-op" @click="viewDetail(ds)">详情</button>
-            <button class="ds-op" @click="editDs(ds)">编辑</button>
-            <button class="ds-op" @click="confirmDelete(ds)">删除</button>
-            <button class="ds-op" @click="testConn(ds)">测试</button>
+            <button class="ds-op" @click="viewDetail(ds)">{{ $t('common.detail') }}</button>
+            <button class="ds-op" @click="editDs(ds)">{{ $t('common.edit') }}</button>
+            <button class="ds-op" @click="confirmDelete(ds)">{{ $t('common.delete') }}</button>
+            <button class="ds-op" @click="testConn(ds)">{{ $t('datasource.test') }}</button>
           </td>
         </tr>
         <tr v-if="!dataSources.length">
-          <td colspan="5" style="text-align:center;color:#aaa;">暂无数据源</td>
+          <td colspan="5" style="text-align:center;color:#aaa;">{{ $t('datasource.noData') }}</td>
         </tr>
       </tbody>
     </table>
@@ -40,52 +40,52 @@
     <!-- 新建/编辑弹窗 -->
     <div v-if="showForm" class="ds-dialog-mask" @click="closeForm">
       <div class="ds-dialog" @click.stop>
-        <h4>{{ formMode==='add' ? '新建' : (formMode==='edit' ? '编辑' : '数据源详情') }}</h4>
+        <h4>{{ formMode==='add' ? $t('datasource.create') : (formMode==='edit' ? $t('datasource.edit') : $t('datasource.detail')) }}</h4>
         <form @submit.prevent="submitForm">
           <div class="form-row">
-            <label>类型</label>
+            <label>{{ $t('datasource.type') }}</label>
             <select v-model="form.type" :disabled="formMode==='detail'" @change="onTypeChange">
               <option value="mysql">MySQL</option>
               <option value="postgresql">PostgreSQL</option>
-              <option value="kingbase">人大金仓</option>
+              <option value="kingbase">{{ $t('datasource.kingbase') }}</option>
             </select>
           </div>
           <div class="form-row">
-            <label>名称</label>
+            <label>{{ $t('datasource.name') }}</label>
             <input v-model="form.name" :readonly="formMode==='detail'" required />
           </div>
           <div class="form-row">
-            <label>地址</label>
+            <label>{{ $t('datasource.host') }}</label>
             <input v-model="form.host" :readonly="formMode==='detail'" required />
           </div>
           <div class="form-row">
-            <label>端口</label>
+            <label>{{ $t('datasource.port') }}</label>
             <input v-model="form.port" :readonly="formMode==='detail'" type="number" required />
           </div>
           <div class="form-row">
-            <label>数据库名</label>
+            <label>{{ $t('datasource.database') }}</label>
             <input v-model="form.databaseName" :readonly="formMode==='detail'" required />
           </div>
           <div class="form-row">
-            <label>用户名</label>
+            <label>{{ $t('datasource.username') }}</label>
             <input v-model="form.username" :readonly="formMode==='detail'" required />
           </div>
           <div class="form-row">
-            <label>密码</label>
+            <label>{{ $t('datasource.password') }}</label>
             <input v-model="form.password" :readonly="formMode==='detail'" :type="formMode==='detail' ? 'text' : 'password'" required />
           </div>
           <div class="form-row">
-            <label>描述</label>
+            <label>{{ $t('datasource.description') }}</label>
             <input v-model="form.description" :readonly="formMode==='detail'" />
           </div>
           <div class="form-row" v-if="formMode!=='detail'">
             <button class="ds-save-btn" type="submit" :disabled="submitting">
-              {{ submitting ? '保存中...' : '保存' }}
+              {{ submitting ? $t('common.saving') : $t('common.save') }}
             </button>
-            <button class="ds-cancel-btn" type="button" @click="closeForm">取消</button>
+            <button class="ds-cancel-btn" type="button" @click="closeForm">{{ $t('common.cancel') }}</button>
           </div>
           <div class="form-row" v-else>
-            <button class="ds-cancel-btn" type="button" @click="closeForm">关闭</button>
+            <button class="ds-cancel-btn" type="button" @click="closeForm">{{ $t('common.close') }}</button>
           </div>
         </form>
       </div>
@@ -94,12 +94,12 @@
     <!-- 删除确认弹窗 -->
     <div v-if="showDelete" class="ds-dialog-mask" @click="showDelete=false">
       <div class="ds-dialog" @click.stop>
-        <h4>确认删除？</h4>
-        <p>确定要删除数据源 <b>{{ delTarget?.name }}</b> 吗？</p>
+        <h4>{{ $t('common.confirmDelete') }}</h4>
+        <p>{{ $t('datasource.deleteConfirm', { name: delTarget?.name }) }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="ds-cancel-btn" @click="showDelete=false">取消</button>
+          <button class="ds-cancel-btn" @click="showDelete=false">{{ $t('common.cancel') }}</button>
           <button class="ds-del-btn" @click="deleteDs" :disabled="deleting">
-            {{ deleting ? '删除中...' : '删除' }}
+            {{ deleting ? $t('common.deleting') : $t('common.delete') }}
           </button>
         </div>
       </div>
@@ -108,10 +108,10 @@
     <!-- 测试连接弹窗 -->
     <div v-if="showTest" class="ds-dialog-mask" @click="showTest=false">
       <div class="ds-dialog" @click.stop>
-        <h4>连接测试</h4>
+        <h4>{{ $t('datasource.connectionTest') }}</h4>
         <p>{{ testMsg }}</p>
         <div style="text-align:right;margin-top:18px;">
-          <button class="ds-cancel-btn" @click="showTest=false">关闭</button>
+          <button class="ds-cancel-btn" @click="showTest=false">{{ $t('common.close') }}</button>
         </div>
       </div>
     </div>

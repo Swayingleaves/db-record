@@ -1,22 +1,27 @@
 <template>
   <div class="register-bg">
+    <!-- 语言切换器 -->
+    <div class="language-switcher-container">
+      <LanguageSwitcher />
+    </div>
+    
     <div class="register-card">
-      <h2>注册账号</h2>
+      <h2>{{ $t('auth.registerTitle') }}</h2>
       <form @submit.prevent="handleRegister">
         <div class="form-item">
-          <input v-model="username" required placeholder="用户名" autocomplete="username" />
+          <input v-model="username" required :placeholder="$t('auth.username')" autocomplete="username" />
         </div>
         <div class="form-item">
-          <input type="password" v-model="password" required placeholder="密码" autocomplete="new-password" />
+          <input type="password" v-model="password" required :placeholder="$t('auth.password')" autocomplete="new-password" />
         </div>
         <button class="register-btn" type="submit" :disabled="loading">
-          {{ loading ? '注册中...' : '注册' }}
+          {{ loading ? $t('auth.registering') : $t('auth.register') }}
         </button>
         <p v-if="error" class="error">{{ error }}</p>
-        <p v-if="success" class="success">注册成功，正在跳转...</p>
+        <p v-if="success" class="success">{{ $t('auth.registerSuccess') }}</p>
       </form>
       <div class="login-tip">
-        已有账号？<router-link to="/login">登录</router-link>
+        {{ $t('auth.hasAccount') }}<router-link to="/login">{{ $t('auth.login') }}</router-link>
       </div>
     </div>
   </div>
@@ -26,6 +31,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import request from '../utils/request';
+import LanguageSwitcher from './LanguageSwitcher.vue';
 
 const username = ref('');
 const password = ref('');
@@ -66,6 +72,14 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.language-switcher-container {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
 }
 .register-card {
   background: #fff;

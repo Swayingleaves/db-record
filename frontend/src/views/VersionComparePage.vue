@@ -2,55 +2,55 @@
   <div class="version-compare-page">
     <!-- 导航路径 -->
     <div class="breadcrumb">
-      <router-link to="/dashboard/project" class="breadcrumb-link">项目管理</router-link>
+      <router-link to="/dashboard/project" class="breadcrumb-link">{{ t('project.title') }}</router-link>
       <span class="breadcrumb-separator">></span>
-      <router-link :to="`/dashboard/project/${projectId}`" class="breadcrumb-link">{{ projectName || '项目详情' }}</router-link>
+      <router-link :to="`/dashboard/project/${projectId}`" class="breadcrumb-link">{{ projectName || t('project.detail') }}</router-link>
       <span class="breadcrumb-separator">></span>
-      <span class="breadcrumb-current">版本对比</span>
+      <span class="breadcrumb-current">{{ t('version.compare') }}</span>
     </div>
 
     <!-- 加载状态 -->
     <div v-if="loading" class="loading">
-      <p>加载中...</p>
+      <p>{{ t('common.loading') }}</p>
     </div>
 
     <!-- 错误提示 -->
     <div v-if="error" class="error-message">
       <p>{{ error }}</p>
-      <button @click="loadVersions">重试</button>
+      <button @click="loadVersions">{{ t('common.retry') }}</button>
     </div>
 
     <!-- 版本选择区域 -->
     <div v-if="!loading && !error" class="version-selector">
       <div class="selector-card">
-        <h3>版本对比</h3>
+        <h3>{{ t('version.compare') }}</h3>
         <div class="version-select-row">
           <div class="version-select-item">
-            <label>基础版本：</label>
+            <label>{{ t('version.baseVersion') }}：</label>
             <select v-model="baseVersionId" @change="onVersionChange">
-              <option value="">请选择版本</option>
+              <option value="">{{ t('version.pleaseSelect') }}</option>
               <option v-for="ver in versions" :key="ver.id" :value="ver.id">{{ ver.versionName }}</option>
             </select>
           </div>
           <div class="switch-btn-container">
             <button class="switch-btn" @click="switchVersions" :disabled="!baseVersionId || !targetVersionId">
-              ⇄ 切换
+              ⇄ {{ t('version.switch') }}
             </button>
           </div>
           <div class="version-select-item">
-            <label>目标版本：</label>
+            <label>{{ t('version.targetVersion') }}：</label>
             <select v-model="targetVersionId" @change="onVersionChange">
-              <option value="">请选择版本</option>
+              <option value="">{{ t('version.pleaseSelect') }}</option>
               <option v-for="ver in versions.filter(v => v.id !== baseVersionId)" :key="ver.id" :value="ver.id">{{ ver.versionName }}</option>
             </select>
           </div>
         </div>
         <div class="action-buttons">
           <button class="compare-btn" @click="performCompare" :disabled="!baseVersionId || !targetVersionId || compareLoading">
-            {{ compareLoading ? '对比中...' : '开始对比' }}
+            {{ compareLoading ? t('version.comparing') : t('version.startCompare') }}
           </button>
           <button class="export-btn" @click="exportDiffSql" :disabled="!compareResult || exportLoading">
-            {{ exportLoading ? '导出中...' : '导出差异SQL' }}
+            {{ exportLoading ? t('version.exporting') : t('version.exportDiffSql') }}
           </button>
         </div>
       </div>
@@ -59,7 +59,7 @@
     <!-- 对比结果区域 -->
     <div v-if="compareResult && !loading" class="compare-result">
       <div class="result-header">
-        <h3>对比结果</h3>
+        <h3>{{ t('version.compareResult') }}</h3>
         <div class="version-info">
           <span class="version-tag base">{{ getVersionName(baseVersionId) }}</span>
           <span class="arrow">→</span>
@@ -70,15 +70,15 @@
       <!-- 统计信息 -->
       <div class="compare-stats">
         <div class="stat-item added">
-          <span class="stat-label">新增表：</span>
+          <span class="stat-label">{{ t('version.addedTables') }}：</span>
           <span class="stat-value">{{ totalAddedTables }}</span>
         </div>
         <div class="stat-item removed">
-          <span class="stat-label">删除表：</span>
+          <span class="stat-label">{{ t('version.deletedTables') }}：</span>
           <span class="stat-value">{{ totalRemovedTables }}</span>
         </div>
         <div class="stat-item modified">
-          <span class="stat-label">修改表：</span>
+          <span class="stat-label">{{ t('version.modifiedTables') }}：</span>
           <span class="stat-value">{{ totalModifiedTables }}</span>
         </div>
       </div>
@@ -87,14 +87,14 @@
       <div class="diff-details">
         <!-- 新增的Schema -->
         <div v-if="compareResult.addedSchemas?.length" class="diff-section">
-          <h4 class="section-title added">新增的 Schema ({{ compareResult.addedSchemas.length }})</h4>
+          <h4 class="section-title added">{{ t('version.addedSchemas') }} ({{ compareResult.addedSchemas.length }})</h4>
           <div v-for="schema in compareResult.addedSchemas" :key="schema.schemaName" class="schema-block">
             <h5 class="schema-name added">{{ schema.schemaName }}</h5>
             <div class="table-list">
               <div v-for="table in schema.tables" :key="table.tableName" class="table-item added">
                 <div class="table-header">
                   <span class="table-name">{{ table.tableName }}</span>
-                  <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                  <span class="table-comment">{{ table.tableComment || t('version.noComment') }}</span>
                 </div>
               </div>
             </div>
@@ -103,14 +103,14 @@
 
         <!-- 删除的Schema -->
         <div v-if="compareResult.removedSchemas?.length" class="diff-section">
-          <h4 class="section-title removed">删除的 Schema ({{ compareResult.removedSchemas.length }})</h4>
+          <h4 class="section-title removed">{{ t('version.deletedSchemas') }} ({{ compareResult.removedSchemas.length }})</h4>
           <div v-for="schema in compareResult.removedSchemas" :key="schema.schemaName" class="schema-block">
             <h5 class="schema-name removed">{{ schema.schemaName }}</h5>
             <div class="table-list">
               <div v-for="table in schema.tables" :key="table.tableName" class="table-item removed">
                 <div class="table-header">
                   <span class="table-name">{{ table.tableName }}</span>
-                  <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                  <span class="table-comment">{{ table.tableComment || t('version.noComment') }}</span>
                 </div>
               </div>
             </div>
@@ -119,66 +119,66 @@
 
         <!-- 修改的Schema -->
         <div v-if="compareResult.modifiedSchemas?.length" class="diff-section">
-          <h4 class="section-title modified">修改的 Schema ({{ compareResult.modifiedSchemas.length }})</h4>
+          <h4 class="section-title modified">{{ t('version.modifiedSchemas') }} ({{ compareResult.modifiedSchemas.length }})</h4>
           <div v-for="schema in compareResult.modifiedSchemas" :key="schema.schemaName" class="schema-block">
             <h5 class="schema-name modified">{{ schema.schemaName }}</h5>
             <!-- 新增的表 -->
             <div v-if="schema.addedTables?.length" class="sub-section">
-              <h6 class="sub-section-title added">新增的表 ({{ schema.addedTables.length }})</h6>
+              <h6 class="sub-section-title added">{{ t('version.addedTables') }} ({{ schema.addedTables.length }})</h6>
               <div class="table-list">
                 <div v-for="table in schema.addedTables" :key="table.tableName" class="table-item added">
                   <div class="table-header">
                     <span class="table-name">{{ table.tableName }}</span>
-                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                    <span class="table-comment">{{ table.tableComment || t('version.noComment') }}</span>
                   </div>
                 </div>
               </div>
             </div>
             <!-- 删除的表 -->
             <div v-if="schema.removedTables?.length" class="sub-section">
-              <h6 class="sub-section-title removed">删除的表 ({{ schema.removedTables.length }})</h6>
+              <h6 class="sub-section-title removed">{{ t('version.deletedTables') }} ({{ schema.removedTables.length }})</h6>
               <div class="table-list">
                 <div v-for="table in schema.removedTables" :key="table.tableName" class="table-item removed">
                   <div class="table-header">
                     <span class="table-name">{{ table.tableName }}</span>
-                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                    <span class="table-comment">{{ table.tableComment || t('version.noComment') }}</span>
                   </div>
                 </div>
               </div>
             </div>
             <!-- 修改的表 -->
             <div v-if="schema.modifiedTables?.length" class="sub-section">
-              <h6 class="sub-section-title modified">修改的表 ({{ schema.modifiedTables.length }})</h6>
+              <h6 class="sub-section-title modified">{{ t('version.modifiedTables') }} ({{ schema.modifiedTables.length }})</h6>
               <div class="table-list">
                 <div v-for="table in schema.modifiedTables" :key="table.tableName" class="table-item modified">
                   <div class="table-header">
                     <span class="table-name">{{ table.tableName }}</span>
-                    <span class="table-comment">{{ table.tableComment || '无注释' }}</span>
+                    <span class="table-comment">{{ table.tableComment || t('version.noComment') }}</span>
                   </div>
                   <div class="table-changes">
                     <div v-if="table.addedColumns?.length" class="change-item">
-                      <span class="change-label added">新增字段：</span>
-                      <span class="change-value">{{ table.addedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                      <span class="change-label added">{{ t('version.addedFields') }}：</span>
+                      <span class="change-value">{{ table.addedColumns.map(c => c.columnName).join(', ') }}</span>
                     </div>
                     <div v-if="table.removedColumns?.length" class="change-item">
-                      <span class="change-label removed">删除字段：</span>
-                      <span class="change-value">{{ table.removedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                      <span class="change-label removed">{{ t('version.deletedFields') }}：</span>
+                      <span class="change-value">{{ table.removedColumns.map(c => c.columnName).join(', ') }}</span>
                     </div>
                     <div v-if="table.modifiedColumns?.length" class="change-item">
-                      <span class="change-label modified">修改字段：</span>
-                      <span class="change-value">{{ table.modifiedColumns.map((c: any) => c.columnName).join(', ') }}</span>
+                      <span class="change-label modified">{{ t('version.modifiedFields') }}：</span>
+                      <span class="change-value">{{ table.modifiedColumns.map(c => c.columnName).join(', ') }}</span>
                     </div>
                     <div v-if="table.addedIndexes?.length" class="change-item">
-                      <span class="change-label added">新增索引：</span>
-                      <span class="change-value">{{ table.addedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                      <span class="change-label added">{{ t('version.addedIndexes') }}：</span>
+                      <span class="change-value">{{ table.addedIndexes.map(i => i.indexName).join(', ') }}</span>
                     </div>
                     <div v-if="table.removedIndexes?.length" class="change-item">
-                      <span class="change-label removed">删除索引：</span>
-                      <span class="change-value">{{ table.removedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                      <span class="change-label removed">{{ t('version.deletedIndexes') }}：</span>
+                      <span class="change-value">{{ table.removedIndexes.map(i => i.indexName).join(', ') }}</span>
                     </div>
                     <div v-if="table.modifiedIndexes?.length" class="change-item">
-                      <span class="change-label modified">修改索引：</span>
-                      <span class="change-value">{{ table.modifiedIndexes.map((i: any) => i.indexName).join(', ') }}</span>
+                      <span class="change-label modified">{{ t('version.modifiedIndexes') }}：</span>
+                      <span class="change-value">{{ table.modifiedIndexes.map(i => i.indexName).join(', ') }}</span>
                     </div>
                   </div>
                 </div>
@@ -199,8 +199,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import request from '../utils/request';
 import type { ProjectVersion, CompareResult } from '../types/api';
+
+const { t } = useI18n();
 
 const route = useRoute();
 
@@ -283,7 +286,7 @@ async function loadVersions() {
     baseVersionId.value = initialVersionId.value;
     
   } catch (err: any) {
-    error.value = err.message || '加载版本列表失败';
+    error.value = err.message || t('version.loadVersionsFailed');
   } finally {
     loading.value = false;
   }
@@ -317,9 +320,9 @@ async function performCompare() {
     compareLoading.value = true;
     const response = await request.get(`/api/project-version/compare/${baseVersionId.value}/${targetVersionId.value}`);
     compareResult.value = response.data.data;
-    showToast('对比完成');
+    showToast(t('version.compareCompleted'));
   } catch (err: any) {
-    showToast(err.message || '对比失败', 'error');
+    showToast(err.message || t('version.compareFailed'), 'error');
   } finally {
     compareLoading.value = false;
   }
@@ -336,7 +339,7 @@ async function exportDiffSql() {
     // 检查响应数据
     const sqlData = response.data?.data?.sql;
     if (!sqlData) {
-      showToast('导出的SQL数据为空', 'error');
+      showToast(t('version.exportSqlEmpty'), 'error');
       return;
     }
     
@@ -351,9 +354,9 @@ async function exportDiffSql() {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    showToast('差异SQL导出成功');
+    showToast(t('version.exportSqlSuccess'));
   } catch (err: any) {
-    showToast(err.message || '导出失败', 'error');
+    showToast(err.message || t('version.exportFailed'), 'error');
   } finally {
     exportLoading.value = false;
   }
