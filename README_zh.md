@@ -1,10 +1,12 @@
 # 数据库结构变化记录
 
-[English Version (英文版)](README.md)
+[English](README.md)
 
 本项目用于记录数据库结构的变化，包括库、表、字段、索引、外键等。
 
 通过 Web 页面，您可以新建项目，在项目控制台输入并执行 SQL 语句，记录这些语句，对项目打 tag，并查看每个 tag 之前的结构变化。
+
+![home](imgs/home.jpg)
 
 ## 项目结构
 - **frontend 前端**
@@ -37,6 +39,16 @@
     - 版本删除
     - 版本对比（展示所选版本之间的结构变化，可导出为 SQL 文件）
 
+![dashboard](imgs/dashboard.jpg)
+
+![project](imgs/project.jpg)
+
+![projectVersion](imgs/projecVersion.jpg)
+
+![table](imgs/table.jpg)
+
+![version_compare](imgs/versionCompare.jpg)
+
 ### 数据源管理
 - 数据源列表
 - 数据源详情
@@ -45,6 +57,8 @@
 - 数据源编辑
 - 数据源测试
 - 数据源连接
+
+![datasource](imgs/datasource.jpg)
 
 #### 支持的数据源
 - MySQL（默认）
@@ -63,4 +77,4 @@
 如需开源，请添加 LICENSE 文件。
 
 ---
-[English Version (英文版)](README.md) 
+[English](README.md) 

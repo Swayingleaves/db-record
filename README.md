@@ -77,4 +77,4 @@ All API responses are wrapped using the `Result` class (`backend/src/main/java/c
 Please add a LICENSE file if you intend to open source this project.
 
 ---
-[中文版 (Chinese Version)](README_zh.md)
+[中文)](README_zh.md)
