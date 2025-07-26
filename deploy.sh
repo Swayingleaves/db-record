@@ -26,7 +26,7 @@ function check_docker() {
 
 function start_services() {
     echo "启动所有服务..."
-    docker-compose up -d
+    docker-compose -f docker-compose-without-mysql.yml up -d
     echo "服务启动完成！"
     echo ""
     echo "访问地址："

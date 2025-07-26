@@ -92,15 +92,15 @@
           <!-- PostgreSQL/KingbaseES 分层显示 -->
           <div v-if="isSchemaBasedDatabase && schemaGroups" class="schemas-tables-container">
             <div v-for="(schemaTables, schemaName) in schemaGroups" :key="schemaName" class="schema-group">
-              <div class="schema-header" @click="toggleSchema(schemaName)">
+              <div class="schema-header" @click="toggleSchema(String(schemaName))">
                 <h5>
-                  <span class="toggle-icon" :class="{ 'expanded': isSchemaExpanded(schemaName) }">▼</span>
+                  <span class="toggle-icon" :class="{ 'expanded': isSchemaExpanded(String(schemaName)) }">▼</span>
                   <span class="schema-icon">📁</span>
                   Schema: {{ schemaName }} ({{ schemaTables.length }}个表)
                 </h5>
               </div>
 
-              <div v-if="isSchemaExpanded(schemaName)" class="schema-tables">
+              <div v-if="isSchemaExpanded(String(schemaName))" class="schema-tables">
                 <div v-for="table in schemaTables" :key="table.id" class="table-card">
               <div class="table-header" @click="toggleTable(table.id)">
                 <h5>
@@ -419,15 +419,6 @@ const error = ref('');
 const toastMessage = ref('');
 const toastType = ref<'success' | 'error'>('success');
 
-// 格式化字节数
-function formatBytes(bytes: number | null | undefined): string {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
 // 页面加载
 onMounted(() => {
   loadVersionDetail();
@@ -531,15 +522,6 @@ function isSchemaExpanded(schemaName: string): boolean {
 function formatDate(dateString?: string): string {
   if (!dateString) return '';
   return new Date(dateString).toLocaleString('zh-CN');
-}
-
-// 显示Toast消息
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toastMessage.value = message;
-  toastType.value = type;
-  setTimeout(() => {
-    toastMessage.value = '';
-  }, 3000);
 }
 
 // 切换表展开状态

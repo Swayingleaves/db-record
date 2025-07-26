@@ -13,7 +13,7 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # 运行阶段
-FROM eclipse-temurin:17-jre-jammy
+FROM openjdk:17-alpine
 
 WORKDIR /app
 

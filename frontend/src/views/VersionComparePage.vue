@@ -198,12 +198,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import request from '../utils/request';
 import type { ProjectVersion, CompareResult } from '../types/api';
 
 const route = useRoute();
-const router = useRouter();
 
 // 路由参数
 const projectId = ref<number>(parseInt(route.params.projectId as string));
