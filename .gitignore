@@ -40,3 +40,5 @@ build/
 .claude/
 **/.vscode/
 .augment
+CLAUDE.md
+GEMINI.md
