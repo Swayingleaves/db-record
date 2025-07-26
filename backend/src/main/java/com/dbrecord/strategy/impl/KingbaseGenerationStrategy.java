@@ -110,14 +110,120 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
     
     @Override
     public String generateAlterTableSql(String tableName, Map<String, Object> tableChanges) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("-- ALTER TABLE statements for ").append(formatIdentifier(tableName)).append("\n");
+        StringBuilder alterSql = new StringBuilder();
         
-        // 这里可以根据tableChanges的具体内容生成相应的ALTER语句
-        // 暂时返回注释，具体实现需要根据业务需求
-        sql.append("-- TODO: Implement specific ALTER TABLE logic based on table changes");
+        // 处理新增字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addedColumns = (List<Map<String, Object>>) tableChanges.get("addedColumns");
+        if (addedColumns != null && !addedColumns.isEmpty()) {
+            for (Map<String, Object> column : addedColumns) {
+                alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" ADD COLUMN ")
+                       .append(formatIdentifier((String) column.get("columnName"))).append(" ")
+                       .append(column.get("columnType"));
+                       
+                if ("NO".equals(column.get("isNullable"))) {
+                    alterSql.append(" NOT NULL");
+                }
+                
+                if (column.get("columnDefault") != null) {
+                    alterSql.append(" DEFAULT '").append(column.get("columnDefault")).append("'");
+                }
+                
+                alterSql.append(";\n");
+                
+                // 人大金仓字段注释需要单独的COMMENT语句
+                if (column.get("columnComment") != null && !column.get("columnComment").toString().isEmpty()) {
+                    alterSql.append("COMMENT ON COLUMN ").append(formatIdentifier(tableName))
+                           .append(".").append(formatIdentifier((String) column.get("columnName")))
+                           .append(" IS '").append(column.get("columnComment")).append("';\n");
+                }
+            }
+        }
         
-        return sql.toString();
+        // 处理删除字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> removedColumns = (List<Map<String, Object>>) tableChanges.get("removedColumns");
+        if (removedColumns != null && !removedColumns.isEmpty()) {
+            for (Map<String, Object> column : removedColumns) {
+                alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" DROP COLUMN ")
+                       .append(formatIdentifier((String) column.get("columnName"))).append(";\n");
+            }
+        }
+        
+        // 处理修改字段
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> modifiedColumns = (List<Map<String, Object>>) tableChanges.get("modifiedColumns");
+        if (modifiedColumns != null && !modifiedColumns.isEmpty()) {
+            for (Map<String, Object> column : modifiedColumns) {
+                String columnName = (String) column.get("columnName");
+                
+                // 人大金仓需要分别修改类型和约束
+                alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                       .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                       .append(" TYPE ").append(column.get("newType")).append(";\n");
+                       
+                // 处理NOT NULL约束
+                if ("NO".equals(column.get("isNullable"))) {
+                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                           .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                           .append(" SET NOT NULL;\n");
+                } else {
+                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                           .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                           .append(" DROP NOT NULL;\n");
+                }
+                
+                // 处理默认值
+                if (column.get("columnDefault") != null) {
+                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                           .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                           .append(" SET DEFAULT '").append(column.get("columnDefault")).append("';\n");
+                }
+                
+                // 人大金仓字段注释需要单独的COMMENT语句
+                if (column.get("newComment") != null && !column.get("newComment").toString().isEmpty()) {
+                    alterSql.append("COMMENT ON COLUMN ").append(formatIdentifier(tableName))
+                           .append(".").append(formatIdentifier(columnName))
+                           .append(" IS '").append(column.get("newComment")).append("';\n");
+                }
+            }
+        }
+        
+        // 处理新增索引
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addedIndexes = (List<Map<String, Object>>) tableChanges.get("addedIndexes");
+        if (addedIndexes != null && !addedIndexes.isEmpty()) {
+            for (Map<String, Object> index : addedIndexes) {
+                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
+                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" ADD PRIMARY KEY (")
+                           .append(index.get("columnNames")).append(");\n");
+                } else {
+                    alterSql.append("CREATE ");
+                    if (Boolean.TRUE.equals(index.get("isUnique"))) {
+                        alterSql.append("UNIQUE ");
+                    }
+                    alterSql.append("INDEX ").append(formatIdentifier((String) index.get("indexName")))
+                           .append(" ON ").append(formatIdentifier(tableName)).append(" (")
+                           .append(index.get("columnNames")).append(");\n");
+                }
+            }
+        }
+        
+        // 处理删除索引
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> removedIndexes = (List<Map<String, Object>>) tableChanges.get("removedIndexes");
+        if (removedIndexes != null && !removedIndexes.isEmpty()) {
+            for (Map<String, Object> index : removedIndexes) {
+                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
+                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" DROP CONSTRAINT ")
+                           .append(formatIdentifier(tableName + "_pkey")).append(";\n");
+                } else {
+                    alterSql.append("DROP INDEX ").append(formatIdentifier((String) index.get("indexName"))).append(";\n");
+                }
+            }
+        }
+        
+        return alterSql.toString();
     }
     
     @Override
