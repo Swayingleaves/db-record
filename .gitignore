@@ -39,3 +39,4 @@ build/
 .augment/
 .claude/
 **/.vscode/
+.augment
