@@ -1,53 +1,66 @@
-# 数据库结构变化记录
+# Database Structure Change Recorder
 
-可以记录数据库的结构变化，包括库、表、字段、索引、外键等。
+[中文版 (Chinese Version)](README_zh.md)
 
-通过本项目web页面，新建项目，在项目控制台输入SQL语句，执行后，记录SQL语句，对项目打tag，可以查看每个tag之前的结构变化。
+This project records changes in database structures, including databases, tables, fields, indexes, and foreign keys.
 
+Through the web interface, you can create projects, execute SQL statements in the project console, record those statements, tag project versions, and view structural changes before each tag.
 
-# 项目结构
-- frontend #前端
-    - 前端框架：vue3
-    - 前端UI框架：element-plus
-    - 前端路由：vue-router
-    - 前端状态管理：pinia
-    - 前端图表：echarts
-- backend #后端
-    - 后端框架：Java Spring Boot jdk17
-    - 后端数据库：mysql
+## Project Structure
+- **frontend**
+    - Framework: Vue 3
+    - UI: Element Plus
+    - Routing: vue-router
+    - State Management: Pinia
+    - Charts: ECharts
+- **backend**
+    - Framework: Java Spring Boot (JDK 17)
+    - Database: MySQL
 
-# 项目模块
+## Main Features
 
-##  登录
-- 登录页面
-- 登录接口
-- 登录验证
-- 登录成功后跳转至项目管理页面
+### Authentication
+- Login page
+- Login API
+- Login validation
+- Redirect to project management page after successful login
 
-## 项目管理
-- 项目列表
-- 项目详情
-- 项目创建
-- 项目删除
-- 项目版本管理
-    - 版本列表
-    - 版本详情
-    - 版本创建
-        - 创建版本后，会查询当前的库、表、字段、索引、外键等结构，并记录到版本中
-    - 版本删除
-    - 版本对比
-        - 展示选择版本之间的结构变化 （可导出为sql文件）
+### Project Management
+- Project list
+- Project details
+- Project creation
+- Project deletion
+- Project version management
+    - Version list
+    - Version details
+    - Version creation (captures current database, tables, fields, indexes, foreign keys, and records them in the version)
+    - Version deletion
+    - Version comparison (shows structural changes between selected versions, exportable as SQL files)
 
+### Datasource Management
+- Datasource list
+- Datasource details
+- Datasource creation
+- Datasource deletion
+- Datasource editing
+- Datasource testing
+- Datasource connection
 
-## 数据源管理
-- 数据源列表
-- 数据源详情
-- 数据源创建
-- 数据源删除
-- 数据源编辑
-- 数据源测试
-- 数据源连接
-### 支持的数据源
-- mysql （默认）
-- postgresql
-- 人大金仓
+#### Supported Datasources
+- MySQL (default)
+- PostgreSQL
+- KingbaseES
+
+## API Response Convention
+All API responses are wrapped using the `Result` class (`backend/src/main/java/com/dbrecord/util/Result.java`).
+
+## Development & Contribution
+- Please refer to `.gitignore` in the root, backend, and frontend directories for best practices.
+- For change history, see `CHANGELOG.md` if available.
+- For backend and frontend specific setup, see their respective `README.md` files in each directory.
+
+## License
+Please add a LICENSE file if you intend to open source this project.
+
+---
+[中文版 (Chinese Version)](README_zh.md)
