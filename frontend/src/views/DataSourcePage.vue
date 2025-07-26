@@ -38,8 +38,8 @@
     </table>
     
     <!-- 新建/编辑弹窗 -->
-    <div v-if="showForm" class="ds-dialog-mask">
-      <div class="ds-dialog">
+    <div v-if="showForm" class="ds-dialog-mask" @click="closeForm">
+      <div class="ds-dialog" @click.stop>
         <h4>{{ formMode==='add' ? '新建' : (formMode==='edit' ? '编辑' : '数据源详情') }}</h4>
         <form @submit.prevent="submitForm">
           <div class="form-row">
@@ -92,8 +92,8 @@
     </div>
     
     <!-- 删除确认弹窗 -->
-    <div v-if="showDelete" class="ds-dialog-mask">
-      <div class="ds-dialog">
+    <div v-if="showDelete" class="ds-dialog-mask" @click="showDelete=false">
+      <div class="ds-dialog" @click.stop>
         <h4>确认删除？</h4>
         <p>确定要删除数据源 <b>{{ delTarget?.name }}</b> 吗？</p>
         <div style="text-align:right;margin-top:18px;">
@@ -106,8 +106,8 @@
     </div>
     
     <!-- 测试连接弹窗 -->
-    <div v-if="showTest" class="ds-dialog-mask">
-      <div class="ds-dialog">
+    <div v-if="showTest" class="ds-dialog-mask" @click="showTest=false">
+      <div class="ds-dialog" @click.stop>
         <h4>连接测试</h4>
         <p>{{ testMsg }}</p>
         <div style="text-align:right;margin-top:18px;">

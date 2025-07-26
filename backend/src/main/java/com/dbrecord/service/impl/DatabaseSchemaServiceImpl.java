@@ -7,6 +7,8 @@ import com.dbrecord.mapper.*;
 import com.dbrecord.service.DatabaseSchemaExtractor;
 import com.dbrecord.service.DatabaseSchemaExtractorFactory;
 import com.dbrecord.service.DatabaseSchemaService;
+import com.dbrecord.strategy.SqlGenerationStrategy;
+import com.dbrecord.strategy.SqlGenerationStrategyFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,9 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     
     @Autowired
     private DatasourceMapper datasourceMapper;
+    
+    @Autowired
+    private SqlGenerationStrategyFactory sqlGenerationStrategyFactory;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -713,54 +718,167 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     
     @Override
     public String generateDiffSql(Long fromVersionId, Long toVersionId, String fromVersionName, String toVersionName) {
+        // 获取数据源类型
+        String datasourceType = getDatasourceTypeByVersionId(toVersionId);
+        if (datasourceType == null) {
+            datasourceType = "mysql"; // 默认使用MySQL
+        }
+        
+        // 获取对应的SQL生成策略
+        SqlGenerationStrategy sqlStrategy = sqlGenerationStrategyFactory.getStrategy(datasourceType);
+        if (sqlStrategy == null) {
+            throw new RuntimeException("不支持的数据库类型: " + datasourceType);
+        }
+        
         // 获取版本对比结果
         Map<String, Object> compareResult = compareVersions(fromVersionId, toVersionId);
         
         StringBuilder sqlBuilder = new StringBuilder();
         sqlBuilder.append("-- 版本差异SQL: ").append(fromVersionName)
                  .append(" -> ").append(toVersionName).append("\n");
+        sqlBuilder.append("-- 数据库类型: ").append(datasourceType.toUpperCase()).append("\n");
         sqlBuilder.append("-- 生成时间: ").append(new java.util.Date()).append("\n\n");
         
-        // 处理新增的表
+        // 处理新增的Schema
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> addedTables = (List<Map<String, Object>>) compareResult.get("addedTables");
-        if (addedTables != null && !addedTables.isEmpty()) {
-            sqlBuilder.append("-- 新增的表\n");
-            for (Map<String, Object> table : addedTables) {
-                String createTableSql = generateCreateTableSql(toVersionId, (String) table.get("tableName"));
-                sqlBuilder.append(createTableSql).append("\n");
+        List<Map<String, Object>> addedSchemas = (List<Map<String, Object>>) compareResult.get("addedSchemas");
+        if (addedSchemas != null && !addedSchemas.isEmpty()) {
+            sqlBuilder.append("-- 新增的Schema及其表\n");
+            for (Map<String, Object> schema : addedSchemas) {
+                String schemaName = (String) schema.get("schemaName");
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> tables = (List<Map<String, Object>>) schema.get("tables");
+                
+                sqlBuilder.append("-- Schema: ").append(schemaName).append("\n");
+                if (tables != null) {
+                    for (Map<String, Object> table : tables) {
+                        String createTableSql = generateCreateTableSql(toVersionId, (String) table.get("tableName"));
+                        sqlBuilder.append(createTableSql).append("\n\n");
+                    }
+                }
             }
-            sqlBuilder.append("\n");
         }
         
-        // 处理删除的表
+        // 处理删除的Schema
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> removedTables = (List<Map<String, Object>>) compareResult.get("removedTables");
-        if (removedTables != null && !removedTables.isEmpty()) {
-            sqlBuilder.append("-- 删除的表\n");
-            for (Map<String, Object> table : removedTables) {
-                sqlBuilder.append("DROP TABLE IF EXISTS `").append(table.get("tableName")).append("`;").append("\n");
+        List<Map<String, Object>> removedSchemas = (List<Map<String, Object>>) compareResult.get("removedSchemas");
+        if (removedSchemas != null && !removedSchemas.isEmpty()) {
+            sqlBuilder.append("-- 删除的Schema及其表\n");
+            for (Map<String, Object> schema : removedSchemas) {
+                String schemaName = (String) schema.get("schemaName");
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> tables = (List<Map<String, Object>>) schema.get("tables");
+                
+                sqlBuilder.append("-- Schema: ").append(schemaName).append("\n");
+                if (tables != null) {
+                    for (Map<String, Object> table : tables) {
+                        String dropTableSql = sqlStrategy.generateDropTableSql((String) table.get("tableName"));
+                        sqlBuilder.append(dropTableSql).append("\n");
+                    }
+                }
+                sqlBuilder.append("\n");
             }
-            sqlBuilder.append("\n");
         }
         
-        // 处理修改的表
+        // 处理修改的Schema
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> modifiedTables = (List<Map<String, Object>>) compareResult.get("modifiedTables");
-        if (modifiedTables != null && !modifiedTables.isEmpty()) {
-            sqlBuilder.append("-- 修改的表\n");
-            for (Map<String, Object> table : modifiedTables) {
-                String alterTableSql = generateAlterTableSql((String) table.get("tableName"), table);
-                sqlBuilder.append(alterTableSql).append("\n");
+        List<Map<String, Object>> modifiedSchemas = (List<Map<String, Object>>) compareResult.get("modifiedSchemas");
+        if (modifiedSchemas != null && !modifiedSchemas.isEmpty()) {
+            for (Map<String, Object> schema : modifiedSchemas) {
+                String schemaName = (String) schema.get("schemaName");
+                sqlBuilder.append("-- 修改的Schema: ").append(schemaName).append("\n");
+                
+                // 处理新增的表
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> addedTables = (List<Map<String, Object>>) schema.get("addedTables");
+                if (addedTables != null && !addedTables.isEmpty()) {
+                    sqlBuilder.append("-- 新增的表\n");
+                    for (Map<String, Object> table : addedTables) {
+                        String createTableSql = generateCreateTableSql(toVersionId, (String) table.get("tableName"));
+                        sqlBuilder.append(createTableSql).append("\n\n");
+                    }
+                }
+                
+                // 处理删除的表
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> removedTables = (List<Map<String, Object>>) schema.get("removedTables");
+                if (removedTables != null && !removedTables.isEmpty()) {
+                    sqlBuilder.append("-- 删除的表\n");
+                    for (Map<String, Object> table : removedTables) {
+                        String dropTableSql = sqlStrategy.generateDropTableSql((String) table.get("tableName"));
+                        sqlBuilder.append(dropTableSql).append("\n");
+                    }
+                    sqlBuilder.append("\n");
+                }
+                
+                // 处理修改的表
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> modifiedTables = (List<Map<String, Object>>) schema.get("modifiedTables");
+                if (modifiedTables != null && !modifiedTables.isEmpty()) {
+                    sqlBuilder.append("-- 修改的表\n");
+                    for (Map<String, Object> table : modifiedTables) {
+                        String alterTableSql = generateAlterTableSql(toVersionId, (String) table.get("tableName"), table);
+                        if (!alterTableSql.trim().isEmpty()) {
+                            sqlBuilder.append(alterTableSql).append("\n");
+                        }
+                    }
+                    sqlBuilder.append("\n");
+                }
             }
-            sqlBuilder.append("\n");
+        }
+        
+        // 如果没有任何差异，添加提示信息
+        if (sqlBuilder.length() <= 100) { // 只有头部注释的情况
+            sqlBuilder.append("-- 两个版本之间没有发现任何差异\n");
         }
         
         return sqlBuilder.toString();
     }
     
+    /**
+     * 根据版本ID获取数据源类型
+     */
+    private String getDatasourceTypeByVersionId(Long versionId) {
+        try {
+            // 获取项目版本信息
+            ProjectVersion projectVersion = projectVersionMapper.selectById(versionId);
+            if (projectVersion == null) {
+                return null;
+            }
+            
+            // 获取项目信息
+            Project project = projectMapper.selectById(projectVersion.getProjectId());
+            if (project == null || project.getDatasourceId() == null) {
+                return null;
+            }
+            
+            // 获取数据源信息
+            Datasource datasource = datasourceMapper.selectById(project.getDatasourceId());
+            if (datasource == null) {
+                return null;
+            }
+            
+            return datasource.getType();
+        } catch (Exception e) {
+            log.error("获取数据源类型失败: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+    
     private String generateCreateTableSql(Long versionId, String tableName) {
         try {
+            // 获取数据源类型
+            String datasourceType = getDatasourceTypeByVersionId(versionId);
+            if (datasourceType == null) {
+                datasourceType = "mysql"; // 默认使用MySQL
+            }
+            
+            // 获取对应的SQL生成策略
+            SqlGenerationStrategy sqlStrategy = sqlGenerationStrategyFactory.getStrategy(datasourceType);
+            if (sqlStrategy == null) {
+                return "-- CREATE TABLE " + tableName + "; -- 不支持的数据库类型: " + datasourceType;
+            }
+            
             // 获取表结构信息
             List<VersionTableStructure> tables = versionTableStructureMapper.selectList(
                 new QueryWrapper<VersionTableStructure>()
@@ -780,74 +898,34 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             // 获取索引信息
             List<VersionTableIndex> indexes = getTableIndexes(table.getId());
             
-            StringBuilder createSql = new StringBuilder();
-            createSql.append("CREATE TABLE `").append(tableName).append("` (\n");
-            
-            // 添加字段定义
-            for (int i = 0; i < columns.size(); i++) {
-                VersionTableColumn column = columns.get(i);
-                createSql.append("  `").append(column.getColumnName()).append("` ");
-                createSql.append(column.getColumnType());
-                
-                if ("NO".equals(column.getIsNullable())) {
-                    createSql.append(" NOT NULL");
-                }
-                
-                if (column.getColumnDefault() != null) {
-                    createSql.append(" DEFAULT '").append(column.getColumnDefault()).append("'");
-                }
-                
-                if (column.getColumnComment() != null && !column.getColumnComment().isEmpty()) {
-                    createSql.append(" COMMENT '").append(column.getColumnComment()).append("'");
-                }
-                
-                if (i < columns.size() - 1 || !indexes.isEmpty()) {
-                    createSql.append(",");
-                }
-                createSql.append("\n");
-            }
-            
-            // 添加索引定义
-            for (int i = 0; i < indexes.size(); i++) {
-                VersionTableIndex index = indexes.get(i);
-                if (Boolean.TRUE.equals(index.getIsPrimary())) {
-                    createSql.append("  PRIMARY KEY (").append(index.getColumnNames()).append(")");
-                } else if (Boolean.TRUE.equals(index.getIsUnique())) {
-                    createSql.append("  UNIQUE KEY `").append(index.getIndexName()).append("` (").append(index.getColumnNames()).append(")");
-                } else {
-                    createSql.append("  KEY `").append(index.getIndexName()).append("` (").append(index.getColumnNames()).append(")");
-                }
-                
-                if (i < indexes.size() - 1) {
-                    createSql.append(",");
-                }
-                createSql.append("\n");
-            }
-            
-            createSql.append(")");
-            
-            // 添加表选项
-            if (table.getEngine() != null) {
-                createSql.append(" ENGINE=").append(table.getEngine());
-            }
-            
-            if (table.getCharset() != null) {
-                createSql.append(" DEFAULT CHARSET=").append(table.getCharset());
-            }
-            
-            if (table.getTableComment() != null && !table.getTableComment().isEmpty()) {
-                createSql.append(" COMMENT='").append(table.getTableComment()).append("'");
-            }
-            
-            createSql.append(";");
-            
-            return createSql.toString();
+            // 使用策略生成CREATE TABLE SQL
+            return sqlStrategy.generateCreateTableSql(table, columns, indexes);
         } catch (Exception e) {
             return "-- CREATE TABLE " + tableName + "; -- 生成失败: " + e.getMessage();
         }
     }
     
-    private String generateAlterTableSql(String tableName, Map<String, Object> tableChanges) {
+    private String generateAlterTableSql(Long versionId, String tableName, Map<String, Object> tableChanges) {
+        try {
+            // 获取数据源类型
+            String datasourceType = getDatasourceTypeByVersionId(versionId);
+            if (datasourceType == null) {
+                datasourceType = "mysql"; // 默认使用MySQL
+            }
+            
+            // 获取对应的SQL生成策略
+            SqlGenerationStrategy sqlStrategy = sqlGenerationStrategyFactory.getStrategy(datasourceType);
+            if (sqlStrategy == null) {
+                return "-- ALTER TABLE " + tableName + "; -- 不支持的数据库类型: " + datasourceType;
+            }
+            
+            return sqlStrategy.generateAlterTableSql(tableName, tableChanges);
+        } catch (Exception e) {
+            return "-- ALTER TABLE " + tableName + "; -- 生成失败: " + e.getMessage();
+        }
+    }
+    
+    private String generateAlterTableSqlOld(String tableName, Map<String, Object> tableChanges) {
         StringBuilder alterSql = new StringBuilder();
         
         // 处理新增字段

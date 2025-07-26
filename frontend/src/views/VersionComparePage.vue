@@ -333,13 +333,22 @@ async function exportDiffSql() {
     exportLoading.value = true;
     const response = await request.get(`/api/project-version/export-diff-sql/${baseVersionId.value}/${targetVersionId.value}`);
     
+    // 检查响应数据
+    const sqlData = response.data?.data?.sql;
+    if (!sqlData) {
+      showToast('导出的SQL数据为空', 'error');
+      return;
+    }
+    
     // 创建下载链接
-    const blob = new Blob([response.data.data.sql], { type: 'text/plain' });
+    const blob = new Blob([sqlData], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `diff_${getVersionName(baseVersionId.value)}_to_${getVersionName(targetVersionId.value)}.sql`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
     showToast('差异SQL导出成功');
