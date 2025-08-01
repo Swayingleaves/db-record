@@ -193,18 +193,20 @@ public class PostgreSqlGenerationStrategy implements SqlGenerationStrategy {
         List<Map<String, Object>> addedIndexes = (List<Map<String, Object>>) tableChanges.get("addedIndexes");
         if (addedIndexes != null && !addedIndexes.isEmpty()) {
             for (Map<String, Object> index : addedIndexes) {
-                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
-                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" ADD PRIMARY KEY (")
-                           .append(index.get("columnNames")).append(");\n");
-                } else {
-                    alterSql.append("CREATE ");
-                    if (Boolean.TRUE.equals(index.get("isUnique"))) {
-                        alterSql.append("UNIQUE ");
-                    }
-                    alterSql.append("INDEX ").append(formatIdentifier((String) index.get("indexName")))
-                           .append(" ON ").append(formatIdentifier(tableName)).append(" (")
-                           .append(index.get("columnNames")).append(");\n");
+                // 跳过主键索引（已在表定义中处理）
+                Boolean isPrimary = getBooleanValue(index.get("isPrimary"));
+                if (Boolean.TRUE.equals(isPrimary)) {
+                    continue;
                 }
+                
+                alterSql.append("CREATE ");
+                Boolean isUnique = getBooleanValue(index.get("isUnique"));
+                if (Boolean.TRUE.equals(isUnique)) {
+                    alterSql.append("UNIQUE ");
+                }
+                alterSql.append("INDEX ").append(formatIdentifier((String) index.get("indexName")))
+                       .append(" ON ").append(formatIdentifier(tableName)).append(" (")
+                       .append(index.get("columnNames")).append(");\n");
             }
         }
         
@@ -213,16 +215,30 @@ public class PostgreSqlGenerationStrategy implements SqlGenerationStrategy {
         List<Map<String, Object>> removedIndexes = (List<Map<String, Object>>) tableChanges.get("removedIndexes");
         if (removedIndexes != null && !removedIndexes.isEmpty()) {
             for (Map<String, Object> index : removedIndexes) {
-                if (Boolean.TRUE.equals(index.get("isPrimary"))) {
-                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" DROP CONSTRAINT ")
-                           .append(formatIdentifier(tableName + "_pkey")).append(";\n");
-                } else {
-                    alterSql.append("DROP INDEX ").append(formatIdentifier((String) index.get("indexName"))).append(";\n");
+                // 跳过主键索引（已在表定义中处理）
+                Boolean isPrimary = getBooleanValue(index.get("isPrimary"));
+                if (Boolean.TRUE.equals(isPrimary)) {
+                    continue;
                 }
+                
+                alterSql.append("DROP INDEX ").append(formatIdentifier((String) index.get("indexName"))).append(";\n");
             }
         }
         
         return alterSql.toString();
+    }
+    
+    private Boolean getBooleanValue(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (obj instanceof Boolean) {
+            return (Boolean) obj;
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).intValue() != 0;
+        }
+        return false;
     }
     
     @Override

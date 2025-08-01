@@ -160,24 +160,48 @@ public class KingbaseDatabaseSchemaExtractor extends AbstractDatabaseSchemaExtra
             schemaName = "public";
         }
         
+        // 优化索引查询，使用更高效的SQL
         String sql = "SELECT " +
                      "i.relname AS index_name, " +
-                     "t.relname AS table_name, " +
-                     "string_agg(a.attname, ',' ORDER BY array_position(ix.indkey, a.attnum)) AS column_names, " +
-                     "CASE WHEN ix.indisunique THEN 1 ELSE 0 END AS is_unique, " +
-                     "CASE WHEN ix.indisprimary THEN 1 ELSE 0 END AS is_primary, " +
+                     "a.attname AS column_name, " +
                      "am.amname AS index_type, " +
+                     "ix.indisunique AS is_unique, " +
+                     "ix.indisprimary AS is_primary, " +
                      "obj_description(i.oid, 'pg_class') AS index_comment " +
                      "FROM pg_class t " +
                      "JOIN pg_namespace n ON t.relnamespace = n.oid " +
                      "JOIN pg_index ix ON t.oid = ix.indrelid " +
                      "JOIN pg_class i ON i.oid = ix.indexrelid " +
-                     "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) " +
                      "JOIN pg_am am ON i.relam = am.oid " +
+                     "JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) " +
                      "WHERE t.relname = ? AND n.nspname = ? AND t.relkind = 'r' " +
-                     "GROUP BY i.relname, t.relname, ix.indisunique, ix.indisprimary, am.amname, i.oid " +
-                     "ORDER BY i.relname";
+                     "ORDER BY i.relname, a.attnum";
 
-        return executeQuery(datasource, sql, tableName, schemaName);
+        List<Map<String, Object>> result = executeQuery(datasource, sql, tableName, schemaName);
+        
+        // 确保返回的字段名与数据库映射一致
+        for (Map<String, Object> row : result) {
+            // 重命名字段以匹配数据库表结构
+            if (row.containsKey("index_name")) {
+                row.put("INDEX_NAME", row.get("index_name"));
+            }
+            if (row.containsKey("index_type")) {
+                row.put("INDEX_TYPE", row.get("index_type"));
+            }
+            if (row.containsKey("is_unique")) {
+                row.put("IS_UNIQUE", row.get("is_unique"));
+            }
+            if (row.containsKey("is_primary")) {
+                row.put("IS_PRIMARY", row.get("is_primary"));
+            }
+            if (row.containsKey("column_name")) {
+                row.put("COLUMN_NAME", row.get("column_name"));
+            }
+            if (row.containsKey("index_comment")) {
+                row.put("INDEX_COMMENT", row.get("index_comment"));
+            }
+        }
+        
+        return result;
     }
 }

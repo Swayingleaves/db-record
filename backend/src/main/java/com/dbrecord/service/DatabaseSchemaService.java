@@ -6,6 +6,7 @@ import com.dbrecord.entity.domain.VersionTableStructure;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 数据库结构服务接口
@@ -21,6 +22,14 @@ public interface DatabaseSchemaService {
      */
     boolean captureAndSaveDatabaseSchema(Long projectVersionId, Datasource datasource, Long userId);
     
+    /**
+     * 异步获取数据库结构信息并保存到版本表中
+     * @param projectVersionId 项目版本ID
+     * @param datasource 数据源信息
+     * @param userId 用户ID
+     * @return CompletableFuture表示异步操作结果
+     */
+    CompletableFuture<Boolean> captureAndSaveDatabaseSchemaAsync(Long projectVersionId, Datasource datasource, Long userId);
 
     
     /**

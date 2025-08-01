@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 /**
  * 数据库结构服务实现类
@@ -57,6 +61,10 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
     
     @Autowired
     private SqlGenerationStrategyFactory sqlGenerationStrategyFactory;
+    
+    @Autowired
+    @Qualifier("schemaCaptureTaskExecutor")
+    private Executor schemaCaptureTaskExecutor;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -103,7 +111,10 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
             // 6. 获取所有表的结构信息
             List<Map<String, Object>> tablesStructure = extractor.getTablesStructure(datasource);
             
-            // 4. 保存每个表的结构信息
+            // 7. 批量保存表结构信息
+            List<VersionTableStructure> tableStructures = new ArrayList<>();
+            Map<String, Map<String, Object>> tableInfoMap = new HashMap<>(); // schemaName.tableName -> tableInfo
+            
             for (Map<String, Object> tableInfo : tablesStructure) {
                 // PostgreSQL返回小写字段名，MySQL返回大写字段名
                 String tableName = (String) tableInfo.get("TABLE_NAME");
@@ -158,158 +169,35 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 versionTableStructure.setDataLength(getLongValue(dataLength));
                 versionTableStructure.setIndexLength(getLongValue(indexLength));
                 versionTableStructure.setAutoIncrement(getLongValue(tableInfo.get("AUTO_INCREMENT")));
-                versionTableStructureMapper.insert(versionTableStructure);
                 
-                Long versionTableId = versionTableStructure.getId();
-                
-                // 保存表字段信息
-                List<Map<String, Object>> columns = extractor.getTableColumns(datasource, schemaName, tableName);
-                for (Map<String, Object> columnInfo : columns) {
-                    VersionTableColumn versionTableColumn = new VersionTableColumn();
-                    versionTableColumn.setVersionTableId(versionTableId);
-                    
-                    // 处理字段名大小写差异
-                    String columnName = (String) columnInfo.get("COLUMN_NAME");
-                    if (columnName == null) columnName = (String) columnInfo.get("column_name");
-                    
-                    Object ordinalPosition = columnInfo.get("ORDINAL_POSITION");
-                    if (ordinalPosition == null) ordinalPosition = columnInfo.get("ordinal_position");
-                    
-                    String columnDefault = (String) columnInfo.get("COLUMN_DEFAULT");
-                    if (columnDefault == null) columnDefault = (String) columnInfo.get("column_default");
-                    
-                    String isNullable = (String) columnInfo.get("IS_NULLABLE");
-                    if (isNullable == null) isNullable = (String) columnInfo.get("is_nullable");
-                    
-                    String dataType = (String) columnInfo.get("DATA_TYPE");
-                    if (dataType == null) dataType = (String) columnInfo.get("data_type");
-                    
-                    Object characterMaxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
-                    if (characterMaxLength == null) characterMaxLength = columnInfo.get("character_maximum_length");
-                    
-                    Object characterOctetLength = columnInfo.get("CHARACTER_OCTET_LENGTH");
-                    if (characterOctetLength == null) characterOctetLength = columnInfo.get("character_octet_length");
-                    
-                    Object numericPrecision = columnInfo.get("NUMERIC_PRECISION");
-                    if (numericPrecision == null) numericPrecision = columnInfo.get("numeric_precision");
-                    
-                    Object numericScale = columnInfo.get("NUMERIC_SCALE");
-                    if (numericScale == null) numericScale = columnInfo.get("numeric_scale");
-                    
-                    Object datetimePrecision = columnInfo.get("DATETIME_PRECISION");
-                    if (datetimePrecision == null) datetimePrecision = columnInfo.get("datetime_precision");
-                    
-                    String characterSetName = (String) columnInfo.get("CHARACTER_SET_NAME");
-                    if (characterSetName == null) characterSetName = (String) columnInfo.get("character_set_name");
-                    
-                    String collationName = (String) columnInfo.get("COLLATION_NAME");
-                    if (collationName == null) collationName = (String) columnInfo.get("collation_name");
-                    
-                    String columnType = (String) columnInfo.get("COLUMN_TYPE");
-                    if (columnType == null) columnType = (String) columnInfo.get("column_type");
-                    
-                    String columnKey = (String) columnInfo.get("COLUMN_KEY");
-                    if (columnKey == null) columnKey = (String) columnInfo.get("column_key");
-                    
-                    String extra = (String) columnInfo.get("EXTRA");
-                    if (extra == null) extra = (String) columnInfo.get("extra");
-                    
-                    String columnComment = (String) columnInfo.get("COLUMN_COMMENT");
-                    if (columnComment == null) columnComment = (String) columnInfo.get("column_comment");
-                    
-                    versionTableColumn.setColumnName(columnName);
-                    versionTableColumn.setOrdinalPosition(getIntValue(ordinalPosition));
-                    versionTableColumn.setColumnDefault(columnDefault);
-                    versionTableColumn.setIsNullable(isNullable);
-                    versionTableColumn.setDataType(dataType);
-                    versionTableColumn.setCharacterMaximumLength(getLongValue(characterMaxLength));
-                    versionTableColumn.setCharacterOctetLength(getLongValue(characterOctetLength));
-                    versionTableColumn.setNumericPrecision(getIntValue(numericPrecision));
-                    versionTableColumn.setNumericScale(getIntValue(numericScale));
-                    versionTableColumn.setDatetimePrecision(getIntValue(datetimePrecision));
-                    versionTableColumn.setCharacterSetName(characterSetName);
-                    versionTableColumn.setCollationName(collationName);
-                    versionTableColumn.setColumnType(columnType);
-                    versionTableColumn.setColumnKey(columnKey);
-                    versionTableColumn.setExtra(extra);
-                    versionTableColumn.setColumnComment(columnComment);
-
-                    // 检查是否已存在相同的字段记录，避免重复插入
-                    QueryWrapper<VersionTableColumn> columnCheckWrapper = new QueryWrapper<>();
-                    columnCheckWrapper.eq("version_table_id", versionTableId);
-                    columnCheckWrapper.eq("column_name", columnName);
-                    VersionTableColumn existingColumn = versionTableColumnMapper.selectOne(columnCheckWrapper);
-
-                    if (existingColumn == null) {
-                        versionTableColumnMapper.insert(versionTableColumn);
-                    } else {
-                        log.warn("字段 {} 在表 {} 中已存在，跳过插入", columnName, versionTableId);
-                    }
-                }
-                
-                // 保存表索引信息
-                List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, schemaName, tableName);
-                Map<String, List<Map<String, Object>>> indexGroups = groupIndexesByName(indexes);
-                
-                for (Map.Entry<String, List<Map<String, Object>>> entry : indexGroups.entrySet()) {
-                    String indexName = entry.getKey();
-                    List<Map<String, Object>> indexColumns = entry.getValue();
-                    
-                    // 跳过空的索引名
-                    if (indexName == null || indexName.trim().isEmpty()) {
-                        log.warn("跳过空的索引名，表: {}", tableName);
-                        continue;
-                    }
-                    
-                    if (!indexColumns.isEmpty()) {
-                        Map<String, Object> firstIndex = indexColumns.get(0);
-                        
-                        VersionTableIndex versionTableIndex = new VersionTableIndex();
-                        versionTableIndex.setVersionTableId(versionTableId);
-                        versionTableIndex.setIndexName(indexName);
-                        
-                        // 处理字段名大小写差异
-                        String indexType = (String) firstIndex.get("INDEX_TYPE");
-                        if (indexType == null) indexType = (String) firstIndex.get("index_type");
-                        
-                        Object nonUnique = firstIndex.get("NON_UNIQUE");
-                        if (nonUnique == null) nonUnique = firstIndex.get("non_unique");
-                        
-                        String indexComment = (String) firstIndex.get("INDEX_COMMENT");
-                        if (indexComment == null) indexComment = (String) firstIndex.get("index_comment");
-                        
-                        versionTableIndex.setIndexType(indexType);
-                        versionTableIndex.setIsUnique(!getBooleanValue(nonUnique));
-                        versionTableIndex.setIsPrimary("PRIMARY".equals(indexName));
-                        
-                        // 构建字段名数组
-                        List<String> columnNames = new ArrayList<>();
-                        List<String> subParts = new ArrayList<>();
-                        
-                        for (Map<String, Object> indexColumn : indexColumns) {
-                            String columnName = (String) indexColumn.get("COLUMN_NAME");
-                            if (columnName == null) columnName = (String) indexColumn.get("column_name");
-                            columnNames.add(columnName);
-                            
-                            Object subPart = indexColumn.get("SUB_PART");
-                            if (subPart == null) subPart = indexColumn.get("sub_part");
-                            subParts.add(subPart != null ? subPart.toString() : null);
-                        }
-                        
-                        try {
-                            versionTableIndex.setColumnNames(objectMapper.writeValueAsString(columnNames));
-                            versionTableIndex.setSubPart(objectMapper.writeValueAsString(subParts));
-                        } catch (JsonProcessingException e) {
-                            log.error("序列化索引信息失败: {}", e.getMessage());
-                            versionTableIndex.setColumnNames(columnNames.toString());
-                            versionTableIndex.setSubPart(subParts.toString());
-                        }
-                        
-                        versionTableIndex.setIndexComment(indexComment);
-                        versionTableIndexMapper.insert(versionTableIndex);
-                    }
+                tableStructures.add(versionTableStructure);
+                tableInfoMap.put(schemaName + "." + tableName, tableInfo);
+            }
+            
+            // 批量插入表结构
+            if (!tableStructures.isEmpty()) {
+                for (VersionTableStructure tableStructure : tableStructures) {
+                    versionTableStructureMapper.insert(tableStructure);
                 }
             }
+            
+            // 8. 并发处理字段和索引信息
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            
+            for (VersionTableStructure tableStructure : tableStructures) {
+                CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    try {
+                        processTableStructure(datasource, extractor, tableStructure, tableInfoMap);
+                    } catch (Exception e) {
+                        log.error("处理表结构失败: {}/{}", tableStructure.getSchemaName(), tableStructure.getTableName(), e);
+                    }
+                }, schemaCaptureTaskExecutor);
+                
+                futures.add(future);
+            }
+            
+            // 等待所有任务完成
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             
             return true;
         } catch (Exception e) {
@@ -318,7 +206,197 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         }
     }
     
-
+    /**
+     * 处理单个表的字段和索引信息
+     */
+    private void processTableStructure(Datasource datasource, DatabaseSchemaExtractor extractor, 
+                                      VersionTableStructure tableStructure, 
+                                      Map<String, Map<String, Object>> tableInfoMap) {
+        Long versionTableId = tableStructure.getId();
+        String schemaName = tableStructure.getSchemaName();
+        String tableName = tableStructure.getTableName();
+        
+        // 构建表信息键
+        String tableKey = schemaName + "." + tableName;
+        Map<String, Object> tableInfo = tableInfoMap.get(tableKey);
+        
+        if (tableInfo == null) {
+            log.warn("未找到表信息: {}", tableKey);
+            return;
+        }
+        
+        // 保存表字段信息
+        List<Map<String, Object>> columns = extractor.getTableColumns(datasource, schemaName, tableName);
+        List<VersionTableColumn> allColumns = new ArrayList<>();
+        for (Map<String, Object> columnInfo : columns) {
+            VersionTableColumn versionTableColumn = new VersionTableColumn();
+            versionTableColumn.setVersionTableId(versionTableId);
+            
+            // 处理字段名大小写差异
+            String columnName = (String) columnInfo.get("COLUMN_NAME");
+            if (columnName == null) columnName = (String) columnInfo.get("column_name");
+            
+            Object ordinalPosition = columnInfo.get("ORDINAL_POSITION");
+            if (ordinalPosition == null) ordinalPosition = columnInfo.get("ordinal_position");
+            
+            String columnDefault = (String) columnInfo.get("COLUMN_DEFAULT");
+            if (columnDefault == null) columnDefault = (String) columnInfo.get("column_default");
+            
+            String isNullable = (String) columnInfo.get("IS_NULLABLE");
+            if (isNullable == null) isNullable = (String) columnInfo.get("is_nullable");
+            
+            String dataType = (String) columnInfo.get("DATA_TYPE");
+            if (dataType == null) dataType = (String) columnInfo.get("data_type");
+            
+            Object characterMaxLength = columnInfo.get("CHARACTER_MAXIMUM_LENGTH");
+            if (characterMaxLength == null) characterMaxLength = columnInfo.get("character_maximum_length");
+            
+            Object characterOctetLength = columnInfo.get("CHARACTER_OCTET_LENGTH");
+            if (characterOctetLength == null) characterOctetLength = columnInfo.get("character_octet_length");
+            
+            Object numericPrecision = columnInfo.get("NUMERIC_PRECISION");
+            if (numericPrecision == null) numericPrecision = columnInfo.get("numeric_precision");
+            
+            Object numericScale = columnInfo.get("NUMERIC_SCALE");
+            if (numericScale == null) numericScale = columnInfo.get("numeric_scale");
+            
+            Object datetimePrecision = columnInfo.get("DATETIME_PRECISION");
+            if (datetimePrecision == null) datetimePrecision = columnInfo.get("datetime_precision");
+            
+            String characterSetName = (String) columnInfo.get("CHARACTER_SET_NAME");
+            if (characterSetName == null) characterSetName = (String) columnInfo.get("character_set_name");
+            
+            String collationName = (String) columnInfo.get("COLLATION_NAME");
+            if (collationName == null) collationName = (String) columnInfo.get("collation_name");
+            
+            String columnType = (String) columnInfo.get("COLUMN_TYPE");
+            if (columnType == null) columnType = (String) columnInfo.get("column_type");
+            
+            String columnKey = (String) columnInfo.get("COLUMN_KEY");
+            if (columnKey == null) columnKey = (String) columnInfo.get("column_key");
+            
+            String extra = (String) columnInfo.get("EXTRA");
+            if (extra == null) extra = (String) columnInfo.get("extra");
+            
+            String columnComment = (String) columnInfo.get("COLUMN_COMMENT");
+            if (columnComment == null) columnComment = (String) columnInfo.get("column_comment");
+            
+            versionTableColumn.setColumnName(columnName);
+            versionTableColumn.setOrdinalPosition(getIntValue(ordinalPosition));
+            versionTableColumn.setColumnDefault(columnDefault);
+            versionTableColumn.setIsNullable(isNullable);
+            versionTableColumn.setDataType(dataType);
+            versionTableColumn.setCharacterMaximumLength(getLongValue(characterMaxLength));
+            versionTableColumn.setCharacterOctetLength(getLongValue(characterOctetLength));
+            versionTableColumn.setNumericPrecision(getIntValue(numericPrecision));
+            versionTableColumn.setNumericScale(getIntValue(numericScale));
+            versionTableColumn.setDatetimePrecision(getIntValue(datetimePrecision));
+            versionTableColumn.setCharacterSetName(characterSetName);
+            versionTableColumn.setCollationName(collationName);
+            versionTableColumn.setColumnType(columnType);
+            versionTableColumn.setColumnKey(columnKey);
+            versionTableColumn.setExtra(extra);
+            versionTableColumn.setColumnComment(columnComment);
+            allColumns.add(versionTableColumn);
+        }
+        
+        // 批量插入字段信息
+        if (!allColumns.isEmpty()) {
+            // 分批插入，避免SQL过长
+            int batchSize = 1000;
+            for (int i = 0; i < allColumns.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, allColumns.size());
+                List<VersionTableColumn> batch = allColumns.subList(i, end);
+                for (VersionTableColumn column : batch) {
+                    versionTableColumnMapper.insert(column);
+                }
+            }
+        }
+        
+        // 保存表索引信息
+        List<Map<String, Object>> indexes = extractor.getTableIndexes(datasource, schemaName, tableName);
+        Map<String, List<Map<String, Object>>> indexGroups = groupIndexesByName(indexes);
+        
+        List<VersionTableIndex> allIndexes = new ArrayList<>();
+        for (Map.Entry<String, List<Map<String, Object>>> entry : indexGroups.entrySet()) {
+            String indexName = entry.getKey();
+            List<Map<String, Object>> indexColumns = entry.getValue();
+            
+            // 跳过空的索引名
+            if (indexName == null || indexName.trim().isEmpty()) {
+                log.warn("跳过空的索引名，表: {}", tableName);
+                continue;
+            }
+            
+            if (!indexColumns.isEmpty()) {
+                Map<String, Object> firstIndex = indexColumns.get(0);
+                
+                VersionTableIndex versionTableIndex = new VersionTableIndex();
+                versionTableIndex.setVersionTableId(versionTableId);
+                versionTableIndex.setIndexName(indexName);
+                
+                // 处理字段名大小写差异
+                String indexType = (String) firstIndex.get("INDEX_TYPE");
+                if (indexType == null) indexType = (String) firstIndex.get("index_type");
+                
+                Object nonUnique = firstIndex.get("NON_UNIQUE");
+                if (nonUnique == null) nonUnique = firstIndex.get("non_unique");
+                
+                String indexComment = (String) firstIndex.get("INDEX_COMMENT");
+                if (indexComment == null) indexComment = (String) firstIndex.get("index_comment");
+                
+                versionTableIndex.setIndexType(indexType);
+                versionTableIndex.setIsUnique(!getBooleanValue(nonUnique));
+                versionTableIndex.setIsPrimary("PRIMARY".equals(indexName));
+                
+                // 构建字段名数组
+                List<String> columnNames = new ArrayList<>();
+                List<String> subParts = new ArrayList<>();
+                
+                for (Map<String, Object> indexColumn : indexColumns) {
+                    String columnName = (String) indexColumn.get("COLUMN_NAME");
+                    if (columnName == null) columnName = (String) indexColumn.get("column_name");
+                    columnNames.add(columnName);
+                    
+                    Object subPart = indexColumn.get("SUB_PART");
+                    if (subPart == null) subPart = indexColumn.get("sub_part");
+                    subParts.add(subPart != null ? subPart.toString() : null);
+                }
+                
+                try {
+                    versionTableIndex.setColumnNames(objectMapper.writeValueAsString(columnNames));
+                    versionTableIndex.setSubPart(objectMapper.writeValueAsString(subParts));
+                } catch (JsonProcessingException e) {
+                    log.error("序列化索引信息失败: {}", e.getMessage());
+                    versionTableIndex.setColumnNames(columnNames.toString());
+                    versionTableIndex.setSubPart(subParts.toString());
+                }
+                
+                versionTableIndex.setIndexComment(indexComment);
+                allIndexes.add(versionTableIndex);
+            }
+        }
+        
+        // 批量插入索引信息
+        if (!allIndexes.isEmpty()) {
+            // 分批插入，避免SQL过长
+            int batchSize = 1000;
+            for (int i = 0; i < allIndexes.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, allIndexes.size());
+                List<VersionTableIndex> batch = allIndexes.subList(i, end);
+                for (VersionTableIndex index : batch) {
+                    versionTableIndexMapper.insert(index);
+                }
+            }
+        }
+    }
+    
+    @Override
+    public CompletableFuture<Boolean> captureAndSaveDatabaseSchemaAsync(Long projectVersionId, Datasource datasource, Long userId) {
+        return CompletableFuture.supplyAsync(() -> 
+            captureAndSaveDatabaseSchema(projectVersionId, datasource, userId), 
+            schemaCaptureTaskExecutor);
+    }
     
     @Override
     public VersionDatabaseSchema getVersionDatabaseSchema(Long projectVersionId) {
@@ -627,11 +705,16 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
         Map<String, VersionTableIndex> fromIndexMap = new HashMap<>();
         Map<String, VersionTableIndex> toIndexMap = new HashMap<>();
         
+        // 过滤主键索引，因为它们已经在表结构中处理
         for (VersionTableIndex index : fromIndexes) {
-            fromIndexMap.put(index.getIndexName(), index);
+            if (!Boolean.TRUE.equals(index.getIsPrimary()) && !"PRIMARY".equals(index.getIndexName())) {
+                fromIndexMap.put(index.getIndexName(), index);
+            }
         }
         for (VersionTableIndex index : toIndexes) {
-            toIndexMap.put(index.getIndexName(), index);
+            if (!Boolean.TRUE.equals(index.getIsPrimary()) && !"PRIMARY".equals(index.getIndexName())) {
+                toIndexMap.put(index.getIndexName(), index);
+            }
         }
         
         // 新增索引
@@ -644,6 +727,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 indexInfo.put("indexType", index.getIndexType());
                 indexInfo.put("columnNames", index.getColumnNames());
                 indexInfo.put("isUnique", index.getIsUnique());
+                indexInfo.put("isPrimary", index.getIsPrimary());
                 addedIndexes.add(indexInfo);
             }
         }
@@ -658,6 +742,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                 indexInfo.put("indexType", index.getIndexType());
                 indexInfo.put("columnNames", index.getColumnNames());
                 indexInfo.put("isUnique", index.getIsUnique());
+                indexInfo.put("isPrimary", index.getIsPrimary());
                 removedIndexes.add(indexInfo);
             }
         }
@@ -676,6 +761,7 @@ public class DatabaseSchemaServiceImpl implements DatabaseSchemaService {
                     indexInfo.put("newType", toIndex.getIndexType());
                     indexInfo.put("oldColumns", fromIndex.getColumnNames());
                     indexInfo.put("newColumns", toIndex.getColumnNames());
+                    indexInfo.put("isPrimary", toIndex.getIsPrimary());
                     modifiedIndexes.add(indexInfo);
                 }
             }

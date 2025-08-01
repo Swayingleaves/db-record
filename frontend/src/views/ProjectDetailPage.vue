@@ -378,20 +378,26 @@ async function submitVersionForm() {
   try {
     versionFormLoading.value = true;
     
-  if (versionFormMode.value === 'add') {
+    if (versionFormMode.value === 'add') {
       const response = await request.post('/api/project-version/create', versionForm.value);
       versions.value.unshift(response.data.data);
-      showToast(t('version.createSuccess'));
-  } else if (versionFormMode.value === 'edit') {
+      
+      // 检查是否有消息提示数据库结构正在捕获中
+      if (response.data.msg && response.data.msg.includes('正在后台捕获中')) {
+        showToast('版本创建成功，数据库结构正在后台捕获中，稍后可查看详细信息', 'success');
+      } else {
+        showToast(t('version.createSuccess'));
+      }
+    } else if (versionFormMode.value === 'edit') {
       await request.put('/api/project-version/update', versionForm.value);
       const index = versions.value.findIndex(v => v.id === versionForm.value.id);
       if (index > -1) {
         versions.value[index] = { ...versions.value[index], ...versionForm.value };
-  }
+      }
       showToast(t('version.updateSuccess'));
     }
     
-  showVersionForm.value = false;
+    showVersionForm.value = false;
   } catch (err: any) {
     showToast(err.message || t('common.operationFailed'), 'error');
   } finally {

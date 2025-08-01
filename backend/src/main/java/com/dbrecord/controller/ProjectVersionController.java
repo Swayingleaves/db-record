@@ -10,6 +10,8 @@ import com.dbrecord.service.ProjectService;
 import com.dbrecord.service.DatasourceService;
 import com.dbrecord.service.DatabaseSchemaService;
 import com.dbrecord.util.Result;
+import lombok.extern.slf4j.Slf4j;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +22,7 @@ import java.util.*;
 /**
  * 项目版本管理控制器
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/project-version")
 public class ProjectVersionController {
@@ -102,16 +105,15 @@ public class ProjectVersionController {
                     Datasource datasource = datasourceService.getById(project.getDatasourceId());
                     if (datasource != null && datasource.getUserId().equals(currentUser.getId())) {
                         try {
-                            boolean schemaSuccess = databaseSchemaService.captureAndSaveDatabaseSchema(
-                                projectVersion.getId(), datasource, currentUser.getId());
+                            // 异步捕获数据库结构
+                            CompletableFuture<Boolean> captureFuture = databaseSchemaService
+                                .captureAndSaveDatabaseSchemaAsync(projectVersion.getId(), datasource, currentUser.getId());
                             
-                            if (schemaSuccess) {
-                                return Result.success(projectVersion, "版本创建成功，数据库结构已捕获");
-                            } else {
-                                return Result.success(projectVersion, "版本创建成功，但数据库结构捕获失败");
-                            }
+                            // 不等待捕获完成，直接返回成功
+                            return Result.success(projectVersion, "版本创建成功，数据库结构正在后台捕获中");
                         } catch (Exception e) {
-                            return Result.success(projectVersion, "版本创建成功，但数据库结构捕获失败: " + e.getMessage());
+                            log.error("启动异步数据库结构捕获失败: {}", e.getMessage(), e);
+                            return Result.success(projectVersion, "版本创建成功，但启动数据库结构捕获失败: " + e.getMessage());
                         }
                     }
                 }

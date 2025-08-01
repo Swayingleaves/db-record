@@ -168,11 +168,17 @@ public class MySqlGenerationStrategy implements SqlGenerationStrategy {
         List<Map<String, Object>> addedIndexes = (List<Map<String, Object>>) tableChanges.get("addedIndexes");
         if (addedIndexes != null && !addedIndexes.isEmpty()) {
             for (Map<String, Object> index : addedIndexes) {
+                // 跳过主键索引（已在表定义中处理）
+                Boolean isPrimary = getBooleanValue(index.get("isPrimary"));
+                if (Boolean.TRUE.equals(isPrimary)) {
+                    continue;
+                }
+                
                 if (Boolean.TRUE.equals(index.get("isPrimary"))) {
                     alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" ADD PRIMARY KEY (")
                            .append(index.get("columnNames")).append(");\n");
                 } else {
-                    String indexType = Boolean.TRUE.equals(index.get("isUnique")) ? "UNIQUE INDEX" : "INDEX";
+                    String indexType = getBooleanValue(index.get("isUnique")) ? "UNIQUE INDEX" : "INDEX";
                     alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" ADD ").append(indexType)
                            .append(" ").append(formatIdentifier((String) index.get("indexName"))).append(" (")
                            .append(index.get("columnNames")).append(");\n");
@@ -185,6 +191,12 @@ public class MySqlGenerationStrategy implements SqlGenerationStrategy {
         List<Map<String, Object>> removedIndexes = (List<Map<String, Object>>) tableChanges.get("removedIndexes");
         if (removedIndexes != null && !removedIndexes.isEmpty()) {
             for (Map<String, Object> index : removedIndexes) {
+                // 跳过主键索引（已在表定义中处理）
+                Boolean isPrimary = getBooleanValue(index.get("isPrimary"));
+                if (Boolean.TRUE.equals(isPrimary)) {
+                    continue;
+                }
+                
                 if (Boolean.TRUE.equals(index.get("isPrimary"))) {
                     alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName)).append(" DROP PRIMARY KEY;\n");
                 } else {
@@ -195,6 +207,19 @@ public class MySqlGenerationStrategy implements SqlGenerationStrategy {
         }
         
         return alterSql.toString();
+    }
+    
+    private Boolean getBooleanValue(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (obj instanceof Boolean) {
+            return (Boolean) obj;
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).intValue() != 0;
+        }
+        return false;
     }
     
     @Override
