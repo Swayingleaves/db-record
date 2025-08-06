@@ -1,0 +1,44 @@
+2025-08-06 22:13:53.202 [main] INFO  com.dbrecord.BackendApplication - Starting BackendApplication using Java 17.0.12 with PID 58076 (/Users/edy/vs-code/db-record/backend/target/classes started by edy in /Users/edy/vs-code/db-record/backend)
+2025-08-06 22:13:53.204 [main] DEBUG com.dbrecord.BackendApplication - Running with Spring Boot v3.5.3, Spring v6.2.8
+2025-08-06 22:13:53.205 [main] INFO  com.dbrecord.BackendApplication - No active profile set, falling back to 1 default profile: "default"
+2025-08-06 22:13:54.635 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8081 (http)
+2025-08-06 22:13:54.648 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2025-08-06 22:13:54.651 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2025-08-06 22:13:54.651 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.42]
+2025-08-06 22:13:54.706 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-08-06 22:13:54.707 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1453 ms
+2025-08-06 22:13:55.357 [main] DEBUG com.dbrecord.config.JwtAuthenticationFilter - Filter 'jwtAuthenticationFilter' configured for use
+2025-08-06 22:13:55.439 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsServiceImpl
+2025-08-06 22:13:56.227 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2025-08-06 22:13:56.262 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path '/'
+2025-08-06 22:13:56.274 [main] INFO  com.dbrecord.BackendApplication - Started BackendApplication in 3.71 seconds (process running for 4.085)
+2025-08-06 22:13:56.357 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-08-06 22:13:56.648 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@2759749
+2025-08-06 22:13:56.650 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-08-06 22:13:56.659 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - ==>  Preparing: SELECT id,username,password,status,role,create_time FROM user WHERE (username = ?)
+2025-08-06 22:13:56.691 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - ==> Parameters: admin(String)
+2025-08-06 22:13:56.718 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - <==      Total: 1
+2025-08-06 22:16:13.717 [main] INFO  com.dbrecord.BackendApplication - Starting BackendApplication using Java 17.0.12 with PID 58616 (/Users/edy/vs-code/db-record/backend/target/classes started by edy in /Users/edy/vs-code/db-record/backend)
+2025-08-06 22:16:13.719 [main] DEBUG com.dbrecord.BackendApplication - Running with Spring Boot v3.5.3, Spring v6.2.8
+2025-08-06 22:16:13.720 [main] INFO  com.dbrecord.BackendApplication - No active profile set, falling back to 1 default profile: "default"
+2025-08-06 22:16:15.067 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat initialized with port 8081 (http)
+2025-08-06 22:16:15.079 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-8081"]
+2025-08-06 22:16:15.082 [main] INFO  org.apache.catalina.core.StandardService - Starting service [Tomcat]
+2025-08-06 22:16:15.082 [main] INFO  org.apache.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.42]
+2025-08-06 22:16:15.132 [main] INFO  o.a.c.core.ContainerBase.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-08-06 22:16:15.132 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1367 ms
+2025-08-06 22:16:15.632 [SpringApplicationShutdownHook] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+2025-08-06 22:16:15.641 [tomcat-shutdown] INFO  o.s.boot.web.embedded.tomcat.GracefulShutdown - Graceful shutdown complete
+2025-08-06 22:16:15.647 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-08-06 22:16:15.655 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-08-06 22:16:15.771 [main] DEBUG com.dbrecord.config.JwtAuthenticationFilter - Filter 'jwtAuthenticationFilter' configured for use
+2025-08-06 22:16:15.844 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userDetailsServiceImpl
+2025-08-06 22:16:16.662 [main] INFO  org.apache.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-8081"]
+2025-08-06 22:16:16.692 [main] INFO  o.s.boot.web.embedded.tomcat.TomcatWebServer - Tomcat started on port 8081 (http) with context path '/'
+2025-08-06 22:16:16.704 [main] INFO  com.dbrecord.BackendApplication - Started BackendApplication in 3.627 seconds (process running for 3.947)
+2025-08-06 22:16:16.798 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-08-06 22:16:17.095 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@32069394
+2025-08-06 22:16:17.097 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-08-06 22:16:17.105 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - ==>  Preparing: SELECT id,username,password,status,role,create_time FROM user WHERE (username = ?)
+2025-08-06 22:16:17.132 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - ==> Parameters: admin(String)
+2025-08-06 22:16:17.158 [main] DEBUG com.dbrecord.mapper.UserMapper.selectList - <==      Total: 1

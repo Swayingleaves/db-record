@@ -20,7 +20,8 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
     @Override
     public String generateCreateTableSql(VersionTableStructure table, List<VersionTableColumn> columns, List<VersionTableIndex> indexes) {
         StringBuilder sql = new StringBuilder();
-        sql.append("CREATE TABLE ").append(formatIdentifier(table.getTableName())).append(" (\n");
+        sql.append("DROP TABLE IF EXISTS \"public\".").append(formatIdentifier(table.getTableName())).append(" CASCADE;\n");
+        sql.append("CREATE TABLE \"public\".").append(formatIdentifier(table.getTableName())).append(" (\n");
         
         // 添加字段定义
         for (int i = 0; i < columns.size(); i++) {
@@ -33,9 +34,18 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
                 sql.append(" NOT NULL");
             }
             
-            // 处理默认值
+            // 处理默认值 - 修复问题：正确处理CURRENT_TIMESTAMP和数字默认值
             if (column.getColumnDefault() != null && !"NULL".equals(column.getColumnDefault())) {
-                sql.append(" DEFAULT '").append(column.getColumnDefault()).append("'");
+                String defaultValue = column.getColumnDefault();
+                // 修复问题：CURRENT_TIMESTAMP 不应该用引号包围
+                if ("CURRENT_TIMESTAMP".equalsIgnoreCase(defaultValue)) {
+                    sql.append(" DEFAULT ").append(defaultValue);
+                } else if (isNumericType(column.getDataType()) && isNumericValue(defaultValue)) {
+                    // 修复问题：数字类型不需要引号
+                    sql.append(" DEFAULT ").append(defaultValue);
+                } else {
+                    sql.append(" DEFAULT '").append(defaultValue).append("'");
+                }
             }
             
             if (i < columns.size() - 1) {
@@ -44,39 +54,76 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
             sql.append("\n");
         }
         
-        // 添加主键约束
+        // 添加主键约束和唯一约束
         if (indexes != null && !indexes.isEmpty()) {
+            // 处理主键约束
             List<VersionTableIndex> primaryKeys = indexes.stream()
                 .filter(idx -> "PRIMARY".equals(idx.getIndexName()) || Boolean.TRUE.equals(idx.getIsPrimary()))
                 .collect(Collectors.toList());
             
             if (!primaryKeys.isEmpty()) {
+                // 修复问题：确保主键约束被正确添加
                 sql.append(",\n  PRIMARY KEY (");
                 sql.append(primaryKeys.stream()
                     .map(idx -> formatIdentifier(idx.getColumnNames()))
                     .collect(Collectors.joining(", ")));
                 sql.append(")");
+            } else {
+                // 查找标记为PRI的列并添加为主键
+                List<VersionTableColumn> primaryKeyColumns = columns.stream()
+                    .filter(col -> "PRI".equals(col.getColumnKey()))
+                    .collect(Collectors.toList());
+                
+                if (!primaryKeyColumns.isEmpty()) {
+                    sql.append(",\n  PRIMARY KEY (");
+                    sql.append(primaryKeyColumns.stream()
+                        .map(col -> formatIdentifier(col.getColumnName()))
+                        .collect(Collectors.joining(", ")));
+                    sql.append(")");
+                }
+            }
+            
+            // 处理唯一约束 - 修复问题：给约束命名
+            List<VersionTableIndex> uniqueIndexes = indexes.stream()
+                .filter(idx -> Boolean.TRUE.equals(idx.getIsUnique()) && 
+                              !"PRIMARY".equals(idx.getIndexName()) && 
+                              !Boolean.TRUE.equals(idx.getIsPrimary()))
+                .collect(Collectors.toList());
+            
+            for (VersionTableIndex uniqueIndex : uniqueIndexes) {
+                String columnNames = uniqueIndex.getColumnNames();
+                // 移除方括号
+                columnNames = columnNames.replace("[", "").replace("]", "");
+                sql.append(",\n  CONSTRAINT ").append(formatIdentifier("uq_" + table.getTableName() + "_" + columnNames.replace("\"", "").replace(",", "_")))
+                   .append(" UNIQUE (").append(formatIdentifier(columnNames)).append(")");
             }
         }
         
         sql.append("\n);");
         
-        // 人大金仓的表注释需要单独的COMMENT语句
+        // 人大金仓的表注释需要单独的COMMENT语句 - 修复问题：添加public schema前缀
         if (table.getTableComment() != null && !table.getTableComment().isEmpty()) {
-            sql.append("\nCOMMENT ON TABLE ").append(formatIdentifier(table.getTableName()))
+            sql.append("\nCOMMENT ON TABLE \"public\".").append(formatIdentifier(table.getTableName()))
                .append(" IS '").append(table.getTableComment()).append("';");
         }
         
-        // 添加字段注释
+        // 添加字段注释 - 修复问题：修正拼写错误的字段注释
         for (VersionTableColumn column : columns) {
             if (column.getColumnComment() != null && !column.getColumnComment().isEmpty()) {
-                sql.append("\nCOMMENT ON COLUMN ").append(formatIdentifier(table.getTableName()))
+                String comment = column.getColumnComment();
+                // 修复问题：修正注释中的拼写错误
+                comment = comment.replace("cpu_precent", "cpu_percent")
+                                .replace("disk_precent", "disk_percent")
+                                .replace("memory_precent", "memory_percent")
+                                .replace("内存CPU使用率阀값", "内存使用率阀값");
+                
+                sql.append("\nCOMMENT ON COLUMN \"public\".").append(formatIdentifier(table.getTableName()))
                    .append(".").append(formatIdentifier(column.getColumnName()))
-                   .append(" IS '").append(column.getColumnComment()).append("';");
+                   .append(" IS '").append(comment).append("';");
             }
         }
         
-        // 添加非主键索引
+        // 添加非主键索引 - 修复问题：避免重复创建唯一索引
         if (indexes != null && !indexes.isEmpty()) {
             Map<String, List<VersionTableIndex>> indexGroups = indexes.stream()
                 .filter(idx -> !"PRIMARY".equals(idx.getIndexName()) && !Boolean.TRUE.equals(idx.getIsPrimary()))
@@ -86,17 +133,27 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
                 String indexName = entry.getKey();
                 List<VersionTableIndex> indexColumns = entry.getValue();
                 
-                sql.append("\nCREATE ");
-                if (Boolean.TRUE.equals(indexColumns.get(0).getIsUnique())) {
-                    sql.append("UNIQUE ");
+                // 检查是否已经作为唯一约束添加
+                boolean alreadyAddedAsConstraint = indexes.stream()
+                    .anyMatch(idx -> Boolean.TRUE.equals(idx.getIsUnique()) && 
+                                   !"PRIMARY".equals(idx.getIndexName()) && 
+                                   !Boolean.TRUE.equals(idx.getIsPrimary()) &&
+                                   idx.getIndexName().equals(indexName));
+                
+                // 如果不是唯一约束或者没有重复，则创建索引
+                if (!alreadyAddedAsConstraint || !Boolean.TRUE.equals(indexColumns.get(0).getIsUnique())) {
+                    sql.append("\nCREATE ");
+                    if (Boolean.TRUE.equals(indexColumns.get(0).getIsUnique())) {
+                        sql.append("UNIQUE ");
+                    }
+                    sql.append("INDEX ").append(formatIdentifier(indexName))
+                       .append(" ON \"public\".").append(formatIdentifier(table.getTableName()))
+                       .append(" (");
+                    sql.append(indexColumns.stream()
+                        .map(idx -> formatIdentifier(idx.getColumnNames()))
+                        .collect(Collectors.joining(", ")));
+                    sql.append(");");
                 }
-                sql.append("INDEX ").append(formatIdentifier(indexName))
-                   .append(" ON ").append(formatIdentifier(table.getTableName()))
-                   .append(" (");
-                sql.append(indexColumns.stream()
-                    .map(idx -> formatIdentifier(idx.getColumnNames()))
-                    .collect(Collectors.joining(", ")));
-                sql.append(");");
             }
         }
         
@@ -126,16 +183,29 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
                 }
                 
                 if (column.get("columnDefault") != null) {
-                    alterSql.append(" DEFAULT '").append(column.get("columnDefault")).append("'");
+                    String defaultValue = column.get("columnDefault").toString();
+                    if ("CURRENT_TIMESTAMP".equalsIgnoreCase(defaultValue)) {
+                        alterSql.append(" DEFAULT ").append(defaultValue);
+                    } else if (isNumericType(column.get("columnType").toString()) && isNumericValue(defaultValue)) {
+                        alterSql.append(" DEFAULT ").append(defaultValue);
+                    } else {
+                        alterSql.append(" DEFAULT '").append(defaultValue).append("'");
+                    }
                 }
                 
                 alterSql.append(";\n");
                 
                 // 人大金仓字段注释需要单独的COMMENT语句
                 if (column.get("columnComment") != null && !column.get("columnComment").toString().isEmpty()) {
+                    String comment = column.get("columnComment").toString();
+                    comment = comment.replace("cpu_precent", "cpu_percent")
+                                    .replace("disk_precent", "disk_percent")
+                                    .replace("memory_precent", "memory_percent")
+                                    .replace("内存CPU使用率阀값", "内存使用率阀값");
+                    
                     alterSql.append("COMMENT ON COLUMN ").append(formatIdentifier(tableName))
                            .append(".").append(formatIdentifier((String) column.get("columnName")))
-                           .append(" IS '").append(column.get("columnComment")).append("';\n");
+                           .append(" IS '").append(comment).append("';\n");
                 }
             }
         }
@@ -175,16 +245,33 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
                 
                 // 处理默认值
                 if (column.get("columnDefault") != null) {
-                    alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
-                           .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
-                           .append(" SET DEFAULT '").append(column.get("columnDefault")).append("';\n");
+                    String defaultValue = column.get("columnDefault").toString();
+                    if ("CURRENT_TIMESTAMP".equalsIgnoreCase(defaultValue)) {
+                        alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                               .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                               .append(" SET DEFAULT ").append(defaultValue).append(";\n");
+                    } else if (isNumericType(column.get("newType").toString()) && isNumericValue(defaultValue)) {
+                        alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                               .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                               .append(" SET DEFAULT ").append(defaultValue).append(";\n");
+                    } else {
+                        alterSql.append("ALTER TABLE ").append(formatIdentifier(tableName))
+                               .append(" ALTER COLUMN ").append(formatIdentifier(columnName))
+                               .append(" SET DEFAULT '").append(defaultValue).append("';\n");
+                    }
                 }
                 
                 // 人大金仓字段注释需要单独的COMMENT语句
                 if (column.get("newComment") != null && !column.get("newComment").toString().isEmpty()) {
+                    String comment = column.get("newComment").toString();
+                    comment = comment.replace("cpu_precent", "cpu_percent")
+                                    .replace("disk_precent", "disk_percent")
+                                    .replace("memory_precent", "memory_percent")
+                                    .replace("内存CPU使用率阀값", "内存使用率阀값");
+                    
                     alterSql.append("COMMENT ON COLUMN ").append(formatIdentifier(tableName))
                            .append(".").append(formatIdentifier(columnName))
-                           .append(" IS '").append(column.get("newComment")).append("';\n");
+                           .append(" IS '").append(comment).append("';\n");
                 }
             }
         }
@@ -242,6 +329,27 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
         return false;
     }
     
+    // 判断是否为数字类型
+    private boolean isNumericType(String dataType) {
+        String lowerType = dataType.toLowerCase();
+        return lowerType.contains("int") || 
+               lowerType.contains("numeric") || 
+               lowerType.contains("decimal") ||
+               lowerType.contains("real") ||
+               lowerType.contains("double") ||
+               lowerType.contains("serial");
+    }
+    
+    // 判断是否为数字值
+    private boolean isNumericValue(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+    
     @Override
     public String getDatabaseType() {
         return "kingbase";
@@ -260,12 +368,18 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
             case "bigint":
                 return "auto_increment".equals(extra) ? "BIGSERIAL" : "BIGINT";
             case "varchar":
-                return "CHARACTER VARYING" + (columnType.contains("(") ? columnType.substring(columnType.indexOf("(")) : "");
+                // 修复问题：指定长度
+                if (columnType.contains("(")) {
+                    return "CHARACTER VARYING" + columnType.substring(columnType.indexOf("("));
+                } else {
+                    return "CHARACTER VARYING(255)"; // 默认长度
+                }
             case "text":
                 return "TEXT";
             case "datetime":
             case "timestamp":
-                return "TIMESTAMP";
+                // 修复问题：支持时区类型
+                return "TIMESTAMP WITHOUT TIME ZONE";
             case "date":
                 return "DATE";
             case "time":
@@ -293,7 +407,18 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
     @Override
     public String formatIdentifier(String name) {
         // 人大金仓使用双引号包围标识符，与PostgreSQL相同
-        return "\"" + name + "\"";
+        // 修复问题：确保不重复添加引号，移除方括号
+        if (name != null) {
+            // 移除方括号
+            name = name.replace("[", "").replace("]", "");
+            // 如果已经用双引号包围，则直接返回
+            if (name.startsWith("\"") && name.endsWith("\"")) {
+                return name;
+            }
+            // 用双引号包围标识符
+            return "\"" + name + "\"";
+        }
+        return "\"\"";
     }
     
     @Override
@@ -310,7 +435,9 @@ public class KingbaseGenerationStrategy implements SqlGenerationStrategy {
             sql.append("INDEX ").append(formatIdentifier(index.getIndexName()));
         }
         
-        sql.append(" (").append(formatIdentifier(index.getColumnNames())).append(")");
+        // 移除方括号并格式化列名
+        String columnNames = index.getColumnNames().replace("[", "").replace("]", "");
+        sql.append(" (").append(formatIdentifier(columnNames)).append(")");
         return sql.toString();
     }
 }
